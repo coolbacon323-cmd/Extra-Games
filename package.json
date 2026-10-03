@@ -1,6 +1,6 @@
 {
   "name": "extra-games-launcher",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Extra Games desktop launcher and game store",
   "main": "electron/main.js",
   "author": "Extra Games",
@@ -18,7 +18,8 @@
   "dependencies": {
     "electron-updater": "^6.6.2",
     "express": "^5.1.0",
-    "stripe": "^19.1.0"
+    "stripe": "^19.1.0",
+    "multer": "^2.0.2"
   },
   "build": {
     "appId": "com.extragames.launcher",
@@ -27,9 +28,23 @@
       "output": "release",
       "buildResources": "build"
     },
-    "files": ["index.html","styles.css","app.js","server.js","api/**/*","electron/**/*"],
+    "files": [
+      "index.html",
+      "styles.css",
+      "app.js",
+      "server.js",
+      "api/**/*",
+      "electron/**/*"
+    ],
     "win": {
-      "target": [{"target":"nsis","arch":["x64"]}]
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -40,6 +55,12 @@
       "shortcutName": "Extra Games Launcher",
       "uninstallDisplayName": "Extra Games Launcher"
     },
-    "publish": [{"provider":"github","owner":"coolbacon323-cmd","repo":"Extra-Games"}]
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "coolbacon323-cmd",
+        "repo": "Extra-Games"
+      }
+    ]
   }
 }
