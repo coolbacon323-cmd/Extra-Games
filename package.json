@@ -35,8 +35,7 @@
             "x64"
           ]
         }
-      ],
-      "icon": "build/icon.ico"
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -46,7 +45,14 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Extra Games Launcher",
       "uninstallDisplayName": "Extra Games Launcher"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "coolbacon323-cmd",
+        "repo": "Extra-Games"
+      }
+    ]
   },
   "dependencies": {
     "electron-updater": "^6.6.2"
