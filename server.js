@@ -6,7 +6,8 @@ const multer=require('multer');
 const {createCheckoutSession}=require('./api/create-checkout-session');
 
 const app=express();
-const port=process.env.PORT||3000;
+const port=Number(process.env.PORT)||3000;
+app.disable('x-powered-by');
 const dataDir=path.join(__dirname,'data');
 const uploadDir=path.join(__dirname,'uploads');
 fs.mkdirSync(dataDir,{recursive:true});fs.mkdirSync(uploadDir,{recursive:true});
@@ -19,7 +20,7 @@ app.use(express.static(__dirname));
 app.use(express.json());
 
 function hashPassword(password){const salt=crypto.randomBytes(16).toString('hex');const hash=crypto.scryptSync(password,salt,64).toString('hex');return salt+':'+hash}
-function verifyPassword(password,stored){const [salt,hash]=stored.split(':');const test=crypto.scryptSync(password,salt,64).toString('hex');return hash&&crypto.timingSafeEqual(Buffer.from(hash,'hex'),Buffer.from(test,'hex'))}
+function verifyPassword(password,stored){try{const [salt,hash]=String(stored||'').split(':');if(!salt||!hash)return false;const test=crypto.scryptSync(password,salt,64).toString('hex');return hash.length===test.length&&crypto.timingSafeEqual(Buffer.from(hash,'hex'),Buffer.from(test,'hex'))}catch{return false}}
 function cleanUser(u){return {id:u.id,name:u.name,email:u.email}}
 function cookieToken(req){const raw=req.headers.cookie||'';const m=raw.match(/(?:^|;\\s*)eg_session=([^;]+)/);return m?m[1]:null}
 function auth(req,res,next){
@@ -67,4 +68,6 @@ app.post('/api/create-checkout-session',async(req,res)=>{
 });
 app.get('/success.html',(req,res)=>res.sendFile(path.join(__dirname,'success.html')));
 app.get('/cancel.html',(req,res)=>res.sendFile(path.join(__dirname,'cancel.html')));
+app.get('/api/health',(req,res)=>res.json({ok:true,service:'extra-games',version:'0.3.0'}));
+app.use((err,req,res,next)=>{console.error(err);if(res.headersSent)return next(err);res.status(400).json({error:err.message||'Request failed.'})});
 app.listen(port,()=>console.log('Extra Games server listening on port '+port));
