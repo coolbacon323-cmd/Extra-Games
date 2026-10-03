@@ -53,3 +53,5 @@ jobs:
         with:
           files: release/*.exe
           generate_release_notes: true
+
+# build-trigger-2026-10-03
