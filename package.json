@@ -1,6 +1,54 @@
 {
-  "name":"extra-games-launcher","version":"0.1.0","description":"Extra Games desktop launcher","main":"electron/main.js","author":"Extra Games","license":"MIT",
-  "scripts":{"start":"electron .","dist":"electron-builder --win","dist:dir":"electron-builder --win --dir"},
-  "devDependencies":{"electron":"^38.0.0","electron-builder":"^26.0.12"},
-  "build":{"appId":"com.extragames.launcher","productName":"Extra Games Launcher","directories":{"output":"release","buildResources":"build"},"files":["index.html","styles.css","app.js","electron/**/*"],"win":{"target":[{"target":"nsis","arch":["x64"]}],"icon":"build/icon.ico"},"nsis":{"oneClick":false,"perMachine":false,"allowToChangeInstallationDirectory":true,"createDesktopShortcut":true,"createStartMenuShortcut":true,"shortcutName":"Extra Games Launcher"}}
+  "name": "extra-games-launcher",
+  "version": "0.1.0",
+  "description": "Extra Games desktop launcher",
+  "main": "electron/main.js",
+  "author": "Extra Games",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win",
+    "dist:dir": "electron-builder --win --dir"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.extragames.launcher",
+    "productName": "Extra Games Launcher",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "index.html",
+      "styles.css",
+      "app.js",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "ask",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Extra Games Launcher",
+      "uninstallDisplayName": "Extra Games Launcher"
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  }
 }
