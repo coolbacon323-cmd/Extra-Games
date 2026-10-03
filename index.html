@@ -15,10 +15,12 @@
       <button class="nav" data-view="library">▣ <span>Library</span></button>
       <button class="nav" data-view="store">◈ <span>Store</span></button>
       <button class="nav" data-view="community">◎ <span>Community</span></button>
+      <button class="nav" data-view="upload">⬆ <span>Upload Game</span></button>
+      <button class="nav" data-view="account">● <span>Account</span></button>
     </nav>
     <div class="sidebar-bottom">
       <button class="nav" data-view="settings">⚙ <span>Settings</span></button>
-      <span class="version">EXTRA LAUNCHER • v0.1</span>
+      <span class="version">EXTRA LAUNCHER • v0.3</span>
     </div>
   </aside>
 
@@ -66,6 +68,47 @@
         <article class="store-tile sale"><div class="tile-icon">%</div><div><span class="badge">WEEKEND SALE</span><h3>Limited-time deals</h3><p>Selected games can receive rotating weekend discounts.</p></div></article>
         <article class="store-tile free"><div class="tile-icon">+</div><div><span class="badge">MONTHLY DROP</span><h3>100% free games</h3><p>Check back each month for free picks.</p></div></article>
       </div>
+    </section>
+
+    
+    <section id="upload" class="view">
+      <div class="page-banner"><span class="eyebrow">CREATOR CENTER</span><h2>Upload a Game</h2><p>Publish your Windows game package to Extra Games. ZIP and EXE uploads are supported.</p></div>
+      <div class="form-card">
+        <form id="upload-form">
+          <label>Game name<input name="title" required maxlength="80" placeholder="My Awesome Game"></label>
+          <label>Description<textarea name="description" required maxlength="1000" placeholder="Tell players what your game is about."></textarea></label>
+          <label>Price in EUR<input name="price" type="number" min="0" step="0.01" value="0"></label>
+          <label>Game package<input name="game" type="file" accept=".zip,.exe" required></label>
+          <button class="gold" type="submit">Upload Game</button>
+          <p id="upload-status" class="form-status"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="account" class="view">
+      <div class="page-banner"><span class="eyebrow">ACCOUNT</span><h2>Your Extra Games account</h2><p id="account-message">Sign in to buy games, manage your library and upload games.</p></div>
+      <div class="account-grid">
+        <div class="form-card">
+          <h3>Sign in</h3>
+          <form id="login-form">
+            <label>Email<input name="email" type="email" required autocomplete="email"></label>
+            <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
+            <button class="gold" type="submit">Log in</button>
+            <p id="login-status" class="form-status"></p>
+          </form>
+        </div>
+        <div class="form-card">
+          <h3>Create account</h3>
+          <form id="signup-form">
+            <label>Display name<input name="name" required maxlength="32"></label>
+            <label>Email<input name="email" type="email" required autocomplete="email"></label>
+            <label>Password<input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+            <button class="outline" type="submit">Sign up</button>
+            <p id="signup-status" class="form-status"></p>
+          </form>
+        </div>
+      </div>
+      <div id="account-panel" class="account-panel" hidden></div>
     </section>
 
     <section id="community" class="view">
