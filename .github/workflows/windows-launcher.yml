@@ -27,13 +27,13 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path launcher | Out-Null
-          Copy-Item "release/*.exe" "launcher/" -Force
+          Copy-Item "release/Extra-Games-Launcher-Setup.exe" "launcher/Extra-Games-Launcher-Setup.exe" -Force
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: extra-games-launcher-windows
-          path: release/*.exe
+          path: release/Extra-Games-Launcher-Setup.exe
 
       - name: Commit EXE into launcher folder
         if: github.ref == 'refs/heads/main'
@@ -51,7 +51,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: release/*.exe
+          files: release/Extra-Games-Launcher-Setup.exe
           generate_release_notes: true
 
 # build-trigger-2026-10-03
