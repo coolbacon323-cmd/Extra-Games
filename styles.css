@@ -5,3 +5,5 @@
 .form-card textarea{min-height:130px;resize:vertical}.form-status{color:var(--gold2);min-height:20px;margin:0}
 .account-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.account-grid .form-card{max-width:none}.account-panel{margin-top:15px;border:1px solid #34401e;background:#10150c;padding:20px}
 @media(max-width:800px){.account-grid{grid-template-columns:1fr}}
+
+.download-card{display:flex;gap:25px;align-items:center;border:1px solid #49391a;background:linear-gradient(145deg,#171208,#0b0b0b);padding:32px;max-width:760px}.download-icon{width:92px;height:92px;display:grid;place-items:center;border:1px solid var(--gold);color:var(--gold);font-size:30px;font-weight:900;flex:0 0 auto}.download-card h3{font-size:24px;margin:9px 0}.download-card p{color:var(--muted);line-height:1.6}.download-button{display:inline-block;text-decoration:none;margin-top:8px}.download-note{font-size:11px;margin:12px 0 0}@media(max-width:650px){.download-card{flex-direction:column;align-items:flex-start}}
