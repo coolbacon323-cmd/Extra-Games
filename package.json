@@ -50,7 +50,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": "ask",
+      "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Extra Games Launcher",
       "uninstallDisplayName": "Extra Games Launcher"
