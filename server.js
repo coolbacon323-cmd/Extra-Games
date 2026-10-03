@@ -21,8 +21,9 @@ app.use(express.json());
 function hashPassword(password){const salt=crypto.randomBytes(16).toString('hex');const hash=crypto.scryptSync(password,salt,64).toString('hex');return salt+':'+hash}
 function verifyPassword(password,stored){const [salt,hash]=stored.split(':');const test=crypto.scryptSync(password,salt,64).toString('hex');return hash&&crypto.timingSafeEqual(Buffer.from(hash,'hex'),Buffer.from(test,'hex'))}
 function cleanUser(u){return {id:u.id,name:u.name,email:u.email}}
+function cookieToken(req){const raw=req.headers.cookie||'';const m=raw.match(/(?:^|;\\s*)eg_session=([^;]+)/);return m?m[1]:null}
 function auth(req,res,next){
-  const token=req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):req.cookies?.eg_session;
+  const token=req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):cookieToken(req);
   const sessions=readJson(sessionsFile,{}),userId=token?sessions[token]:null;
   const users=readJson(usersFile,[]),user=users.find(x=>x.id===userId);
   if(!user)return res.status(401).json({error:'You must be logged in.'});
@@ -32,7 +33,7 @@ function tokenFor(user){const token=crypto.randomBytes(32).toString('hex');const
 function setCookie(res,token){res.setHeader('Set-Cookie','eg_session='+token+'; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000')}
 
 app.get('/api/auth/me',(req,res)=>{
-  const raw=req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):null;
+  const raw=req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):cookieToken(req);
   const sessions=readJson(sessionsFile,{}),users=readJson(usersFile,[]);
   const user=raw?users.find(x=>x.id===sessions[raw]):null;
   res.json({user:user?cleanUser(user):null});
