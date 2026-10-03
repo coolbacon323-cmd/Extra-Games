@@ -1,47 +1,18 @@
-const views=[...document.querySelectorAll('.view')];
-const byId=id=>document.getElementById(id);
-const nav=[...document.querySelectorAll('[data-view]')];
-const title=document.querySelector('#title');
-const names={home:'Discover something new',library:'Your Library',store:'Store',community:'Community',upload:'Upload Game',account:'Account',settings:'Settings',download:'Download Launcher'};
-function show(view){views.forEach(v=>v.classList.toggle('active',v.id===view));document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.view===view));if(title)title.textContent=names[view]||'Extra Games';history.replaceState(null,'','#'+view)}
-nav.forEach(n=>n.addEventListener('click',()=>show(n.dataset.view)));
-document.querySelectorAll('[data-view]').forEach(n=>n.addEventListener('click',()=>{if(n.dataset.view)show(n.dataset.view)}));
-
-async function api(path,options={}){const r=await fetch(path,options);let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||'Request failed.');return d}
+const views=[...document.querySelectorAll(".view")],byId=id=>document.getElementById(id),nav=[...document.querySelectorAll("[data-view]")],title=document.querySelector("#title");
+const names={home:"Discover something new",library:"Your Library",store:"Store",community:"Community",upload:"Upload Game",account:"Account",settings:"Settings",download:"Download Launcher"};
+function show(view){views.forEach(v=>v.classList.toggle("active",v.id===view));document.querySelectorAll(".nav").forEach(n=>n.classList.toggle("active",n.dataset.view===view));if(title)title.textContent=names[view]||"Extra Games";history.replaceState(null,"","#"+view);if(view==="store")loadStore();if(view==="library")loadLibrary();}
+nav.forEach(n=>n.addEventListener("click",()=>show(n.dataset.view)));
+document.querySelectorAll("[data-view]").forEach(n=>n.addEventListener("click",()=>{if(n.dataset.view)show(n.dataset.view)}));
+async function api(path,options={}){const r=await fetch(path,options);let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||"Request failed.");return d}
 function formData(form){return Object.fromEntries(new FormData(form).entries())}
-
-async function refreshAccount(){
-  try{
-    const d=await api('/api/auth/me');
-    const panel=byId('account-panel'),msg=byId('account-message');
-    if(!panel||!msg)return;
-    if(d.user){
-      msg.textContent='Signed in as '+d.user.name+' ('+d.user.email+').';
-      panel.hidden=false;
-      panel.innerHTML='<strong>Account active</strong><p>You can now upload games and use account-only features.</p><button class="outline" id="logout">Log out</button>';
-      document.querySelector('#logout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});location.reload()};
-    }else{panel.hidden=true}
-  }catch(e){}
-}
-byId('login-form')?.addEventListener('submit',async e=>{
-  e.preventDefault();const s=document.querySelector('#login-status');s.textContent='Signing in…';
-  try{await api('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(formData(e.target))});s.textContent='Logged in.';await refreshAccount()}catch(err){s.textContent=err.message}
-});
-byId('signup-form')?.addEventListener('submit',async e=>{
-  e.preventDefault();const s=document.querySelector('#signup-status');s.textContent='Creating account…';
-  try{await api('/api/auth/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(formData(e.target))});s.textContent='Account created and signed in.';await refreshAccount()}catch(err){s.textContent=err.message}
-});
-byId('upload-form')?.addEventListener('submit',async e=>{
-  e.preventDefault();const s=document.querySelector('#upload-status');s.textContent='Uploading…';
-  try{const d=await api('/api/games/upload',{method:'POST',body:new FormData(e.target)});s.textContent='Uploaded '+d.game.title+'. It is now pending approval.';e.target.reset()}catch(err){s.textContent=err.message}
-});
-async function startCheckout(productId){
-  try{
-    const me=await api('/api/auth/me'); if(!me.user){show('account');throw new Error('Log in or create an account before purchasing.')}
-    const response=await api('/api/create-checkout-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({productId,email:me.user.email})});
-    window.open(response.url,'_blank','noopener,noreferrer');
-  }catch(error){alert(error.message)}
-}
-document.querySelectorAll('[data-buy]').forEach(button=>button.addEventListener('click',()=>startCheckout(button.dataset.buy)));
+async function refreshAccount(){try{const d=await api("/api/auth/me"),panel=byId("account-panel"),msg=byId("account-message");if(!panel||!msg)return;if(d.user){msg.textContent="Signed in as "+d.user.name+" ("+d.user.email+").";panel.hidden=false;panel.innerHTML="<strong>Account active</strong><p>Upload games, purchase approved games and manage your library.</p><button class='outline' id='logout'>Log out</button>"+(d.user.isAdmin?"<button class='gold' id='admin-games'>Review uploads</button>":"");byId("logout").onclick=async()=>{await api("/api/auth/logout",{method:"POST"});location.reload()};byId("admin-games")?.addEventListener("click",loadAdmin)}else panel.hidden=true}catch{}}
+byId("login-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("login-status");s.textContent="Signing in…";try{await api("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formData(e.target))});s.textContent="Logged in.";await refreshAccount();show("home")}catch(err){s.textContent=err.message}});
+byId("signup-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("signup-status");s.textContent="Creating account…";try{await api("/api/auth/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formData(e.target))});s.textContent="Account created and signed in.";await refreshAccount();show("home")}catch(err){s.textContent=err.message}});
+byId("upload-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("upload-status");s.textContent="Uploading…";try{const d=await api("/api/games/upload",{method:"POST",body:new FormData(e.target)});s.textContent="Uploaded "+d.game.title+". It is pending admin approval.";e.target.reset()}catch(err){s.textContent=err.message}});
+async function loadStore(){const box=byId("dynamic-games");if(!box)return;box.innerHTML="<p>Loading games…</p>";try{const d=await api("/api/games");if(!d.games.length){box.innerHTML="<div class='empty compact'><strong>No approved games yet.</strong><p>Games will appear here after approval.</p></div>";return}box.innerHTML=d.games.map(g=>"<article class='store-tile'><div><span class='badge'>"+escapeHtml(g.creatorName)+"</span><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description)+"</p><strong>"+(g.price===0?"Free":"€"+g.price.toFixed(2))+"</strong><div><button class='gold buy-game' data-id='"+g.id+"'>"+(g.owned?"Owned":"Buy / Get")+"</button></div></div></article>").join("");box.querySelectorAll(".buy-game").forEach(b=>b.onclick=()=>startCheckout(b.dataset.id))}catch(e){box.innerHTML="<p>"+escapeHtml(e.message)+"</p>"}}
+async function loadLibrary(){const box=byId("library-games");if(!box)return;try{const d=await api("/api/library");box.innerHTML=d.games.length?d.games.map(g=>"<article class='store-tile'><div><span class='badge'>LIBRARY</span><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description)+"</p><button class='gold download-game' data-id='"+g.id+"'>Download</button></div></article>").join(""):"<div class='empty'><strong>Your library is empty</strong><p>Purchase a game from the Store to see it here.</p></div>";box.querySelectorAll(".download-game").forEach(b=>b.onclick=()=>{location.href="/api/games/"+encodeURIComponent(b.dataset.id)+"/download"})}catch(e){box.innerHTML="<p>"+escapeHtml(e.message)+"</p>"}}
+async function loadAdmin(){show("account");const panel=byId("account-panel");try{const d=await api("/api/admin/games");panel.innerHTML="<h3>Admin review</h3>"+d.games.map(g=>"<div class='admin-row'><strong>"+escapeHtml(g.title)+"</strong> <span>"+escapeHtml(g.status)+"</span><button class='gold' data-a='approve' data-id='"+g.id+"'>Approve</button><button class='outline' data-a='reject' data-id='"+g.id+"'>Reject</button></div>").join("");panel.hidden=false;panel.querySelectorAll("[data-a]").forEach(b=>b.onclick=async()=>{await api("/api/admin/games/"+b.dataset.id+"/"+b.dataset.a,{method:"POST"});loadAdmin()})}catch(e){panel.innerHTML="<p>"+escapeHtml(e.message)+"</p>"}}
+async function startCheckout(gameId){try{const me=await api("/api/auth/me");if(!me.user){show("account");throw new Error("Log in or create an account before purchasing.")}const d=await api("/api/create-checkout-session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({gameId})});if(d.free){show("library");return}window.location.href=d.url}catch(e){alert(e.message)}}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
 refreshAccount();
-const initial=location.hash.slice(1);show(names[initial]?initial:'home');
+const initial=location.hash.slice(1);show(names[initial]?initial:"home");
