@@ -1,1 +1,88 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Extra Games Launcher</title><link rel="stylesheet" href="./styles.css"></head><body><div class="app"><aside class="sidebar"><div class="brand"><span class="mark">EX</span><div><strong>EXTRA</strong><small>GAMES</small></div></div><nav><button class="nav active" data-view="home">⌂ <span>Home</span></button><button class="nav" data-view="library">▣ <span>Library</span></button><button class="nav" data-view="store">◈ <span>Store</span></button><button class="nav" data-view="community">◎ <span>Community</span></button></nav><div class="sidebar-bottom"><button class="nav" data-view="settings">⚙ <span>Settings</span></button><span class="version">EXTRA LAUNCHER • v0.1</span></div></aside><main><header><div><span class="eyebrow">GAME LAUNCHER</span><h1 id="title">Welcome back</h1></div><div class="profile"><span class="status"></span> Offline mode</div></header><section id="home" class="view active"><div class="hero"><div><span class="badge">EXTRA GAMES</span><h2>Your games,<br><em>one launcher.</em></h2><p>Launch installed games, browse your library, and stay connected to the Extra Games store.</p><button class="gold" data-view="library">Open Library →</button></div><div class="orb"><span>EX</span></div></div><div class="section-head"><h3>Recently played</h3><span>0 games</span></div><div class="empty"><div class="empty-icon">◫</div><strong>No games installed yet</strong><p>Games you install from Extra Games will appear here.</p><button class="outline" data-view="store">Browse Store</button></div></section><section id="library" class="view"><div class="section-head"><h3>Library</h3><span>0 games</span></div><div class="empty"><div class="empty-icon">▣</div><strong>Your library is empty</strong><p>Purchase or claim a game from the store to build your library.</p><button class="gold" data-view="store">Find Games</button></div></section><section id="store" class="view"><div class="section-head"><h3>Store</h3><span>Extra Games</span></div><div class="store-card"><div class="cover">EXTRA<br>GAMES</div><div><span class="badge">COMING SOON</span><h2>The Extra Games Store</h2><p>Discover indie games, weekend sales, and monthly free games.</p><button class="gold" id="web-store">Open Store</button></div></div></section><section id="community" class="view"><div class="section-head"><h3>Community</h3><span>Social</span></div><div class="empty"><div class="empty-icon">◎</div><strong>Connect with players</strong><p>Friends, messages, groups, and community features will live here.</p></div></section><section id="settings" class="view"><div class="section-head"><h3>Settings</h3><span>Launcher</span></div><div class="settings"><label>Launcher starts with system <input type="checkbox"></label><label>Minimize to tray <input type="checkbox"></label><label>Check for updates automatically <input type="checkbox" checked></label></div></section></main></div><script src="./app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Extra Games Launcher</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="mark">EX</span><div><strong>EXTRA</strong><small>GAMES</small></div></div>
+    <nav>
+      <button class="nav active" data-view="home">⌂ <span>Home</span></button>
+      <button class="nav" data-view="library">▣ <span>Library</span></button>
+      <button class="nav" data-view="store">◈ <span>Store</span></button>
+      <button class="nav" data-view="community">◎ <span>Community</span></button>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="nav" data-view="settings">⚙ <span>Settings</span></button>
+      <span class="version">EXTRA LAUNCHER • v0.1</span>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div><span class="eyebrow">EXTRA GAMES</span><h1 id="title">Discover something new</h1></div>
+      <div class="profile"><span class="status"></span> Ready to play</div>
+    </header>
+
+    <section id="home" class="view active">
+      <div class="hero">
+        <div class="hero-copy">
+          <span class="badge">THE NEW EXTRA GAMES</span>
+          <h2>Play more.<br><em>Pay less.</em></h2>
+          <p>Discover indie games, community creations, weekend deals and monthly free drops — all from one place.</p>
+          <div class="hero-actions">
+            <button class="gold" data-view="store">Explore Store →</button>
+            <button class="outline" data-view="library">Open Library</button>
+          </div>
+          <div class="hero-meta"><span>● Community powered</span><span>● Secure downloads</span><span>● Built for PC</span></div>
+        </div>
+        <div class="hero-art"><div class="art-ring"></div><div class="art-logo">EX</div><span>EXTRA<br>GAMES</span></div>
+      </div>
+
+      <div class="section-head"><div><span class="eyebrow">FEATURED</span><h3>What’s happening</h3></div><button class="text-button" data-view="store">View store →</button></div>
+      <div class="feature-grid">
+        <article class="feature-card feature-main"><div class="feature-art">EXTRA<br><b>FEATURED</b></div><div class="feature-body"><span class="badge">FEATURED</span><h4>Find your next favorite</h4><p>Browse new releases and creator-made games arriving on Extra Games.</p><button class="outline" data-view="store">Browse games</button></div></article>
+        <article class="feature-card sale"><div class="mini-icon">%</div><span class="badge">WEEKEND SALE</span><h4>Save on selected games</h4><p>Special weekend pricing rotates regularly.</p><button class="text-button" data-view="store">See deals →</button></article>
+        <article class="feature-card free"><div class="mini-icon">+</div><span class="badge">MONTHLY DROP</span><h4>100% free picks</h4><p>Fresh free games can be highlighted every month.</p><button class="text-button" data-view="store">See free games →</button></article>
+      </div>
+
+      <div class="section-head"><div><span class="eyebrow">LIBRARY</span><h3>Recently played</h3></div><span>0 games</span></div>
+      <div class="empty compact"><div class="empty-icon">◫</div><strong>Your library is ready</strong><p>Install a game from the store and it will appear here.</p><button class="outline" data-view="store">Browse Store</button></div>
+    </section>
+
+    <section id="library" class="view">
+      <div class="page-banner"><span class="eyebrow">YOUR COLLECTION</span><h2>Library</h2><p>Installed games, updates and launch options will live here.</p></div>
+      <div class="empty"><div class="empty-icon">▣</div><strong>Your library is empty</strong><p>Choose a game from Extra Games to start building your collection.</p><button class="gold" data-view="store">Find Games</button></div>
+    </section>
+
+    <section id="store" class="view">
+      <div class="page-banner"><span class="eyebrow">EXTRA GAMES STORE</span><h2>Discover your next game.</h2><p>Indie releases, community uploads, sales and free monthly picks.</p></div>
+      <div class="store-grid">
+        <article class="store-tile"><div class="tile-art">NEW<br>GAMES</div><div><span class="badge">DISCOVER</span><h3>Fresh releases</h3><p>Find games from creators on Extra Games.</p><button class="gold" id="web-store">Open Store</button></div></article>
+        <article class="store-tile sale"><div class="tile-icon">%</div><div><span class="badge">WEEKEND SALE</span><h3>Limited-time deals</h3><p>Selected games can receive rotating weekend discounts.</p></div></article>
+        <article class="store-tile free"><div class="tile-icon">+</div><div><span class="badge">MONTHLY DROP</span><h3>100% free games</h3><p>Check back each month for free picks.</p></div></article>
+      </div>
+    </section>
+
+    <section id="community" class="view">
+      <div class="page-banner"><span class="eyebrow">SOCIAL</span><h2>Community</h2><p>Connect with players, creators and groups around Extra Games.</p></div>
+      <div class="community-grid"><div class="community-card"><span>◎</span><h3>Friends</h3><p>Find players by display name and manage connections.</p></div><div class="community-card"><span>✉</span><h3>Messages</h3><p>Keep conversations with accepted friends in one place.</p></div><div class="community-card"><span>◆</span><h3>Groups</h3><p>Join communities built around games and interests.</p></div></div>
+    </section>
+
+    <section id="settings" class="view">
+      <div class="page-banner"><span class="eyebrow">LAUNCHER</span><h2>Settings</h2><p>Control how Extra Games behaves on your PC.</p></div>
+      <div class="settings">
+        <label><span><strong>Start with Windows</strong><small>Open Extra Games when you sign in.</small></span><input type="checkbox"></label>
+        <label><span><strong>Minimize to tray</strong><small>Keep the launcher running in the background.</small></span><input type="checkbox"></label>
+        <label><span><strong>Automatic updates</strong><small>Check for launcher updates automatically.</small></span><input type="checkbox" checked></label>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="./app.js"></script>
+</body>
+</html>
