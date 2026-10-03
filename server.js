@@ -22,7 +22,7 @@ app.use(express.json());
 function hashPassword(password){const salt=crypto.randomBytes(16).toString('hex');const hash=crypto.scryptSync(password,salt,64).toString('hex');return salt+':'+hash}
 function verifyPassword(password,stored){try{const [salt,hash]=String(stored||'').split(':');if(!salt||!hash)return false;const test=crypto.scryptSync(password,salt,64).toString('hex');return hash.length===test.length&&crypto.timingSafeEqual(Buffer.from(hash,'hex'),Buffer.from(test,'hex'))}catch{return false}}
 function cleanUser(u){return {id:u.id,name:u.name,email:u.email}}
-function cookieToken(req){const raw=req.headers.cookie||'';const m=raw.match(/(?:^|;\\s*)eg_session=([^;]+)/);return m?m[1]:null}
+function cookieToken(req){const raw=req.headers.cookie||'';const m=raw.match(/(?:^|;\s*)eg_session=([^;]+)/);return m?m[1]:null}
 function auth(req,res,next){
   const token=req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):cookieToken(req);
   const sessions=readJson(sessionsFile,{}),userId=token?sessions[token]:null;
