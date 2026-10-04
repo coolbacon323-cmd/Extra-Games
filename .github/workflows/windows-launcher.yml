@@ -32,6 +32,7 @@ jobs:
       - name: Validate JavaScript
         shell: pwsh
         run: |
+          node --check app.js
           node --check server.js
           node --check electron/main.js
           node --check electron/preload.js
