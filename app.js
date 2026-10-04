@@ -53,7 +53,7 @@ async function localGameGet(id){
 }
 function localGamePublic(g){
   const session=readLocalSession();
-  return {id:g.id,title:g.title,description:g.description,price:Number(g.price||0),creatorName:g.creatorName||"LOCAL CREATOR",status:"approved",createdAt:g.createdAt,owned:!!session&&g.creatorId===session.id,localOnly:true,localCreatorId:g.creatorId,gameType:g.gameType||"desktop",vrRuntime:g.vrRuntime||"",vrHeadsets:g.vrHeadsets||""};
+  return {id:g.id,title:g.title,description:g.description,price:Number(g.price||0),creatorName:g.creatorName||"LOCAL CREATOR",status:"approved",createdAt:g.createdAt,owned:!!session&&g.creatorId===session.id,localOnly:true,localCreatorId:g.creatorId,gameType:g.gameType||"desktop",vrRuntime:g.vrRuntime||"",vrHeadsets:g.vrHeadsets||"",vrDevice:g.vrDevice||"",packageType:g.packageType||(g.filename||"").split(".").pop().toLowerCase()};
 }
 async function localHash(value){const data=new TextEncoder().encode(value),digest=await crypto.subtle.digest("SHA-256",data);return[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("")}
 function localUserView(u){const email=String(u.email||"").toLowerCase();const role=u.role||(email===ADMIN_EMAIL?"owner":"user");return{id:u.id,name:u.name,email:u.email,isAdmin:!!u.isAdmin||role!=="user"||email===ADMIN_EMAIL,role,localOnly:true}}
@@ -109,10 +109,11 @@ function renderGames(){
   if(!list.length){box.innerHTML="<div class='empty compact'><strong>No games found</strong><p>Try a different search or game-type filter.</p></div>";return}
   const wished=new Set(readWishlist());
   box.innerHTML=list.map(g=>{
-    const owned=!!g.owned,vr=g.gameType==="vr"||g.gameType==="both";
+    const owned=!!g.owned,vr=g.gameType==="vr"||g.gameType==="both",apk=g.packageType==="apk";
     const typeBadge=g.gameType==="both"?"DESKTOP + VR":vr?"VR":"DESKTOP";
-    const vrMeta=vr?"<div class='vr-meta'><span>VR READY</span>"+(g.vrRuntime?"<span>"+escapeHtml(g.vrRuntime)+"</span>":"")+(g.vrHeadsets?"<small>"+escapeHtml(g.vrHeadsets)+"</small>":"")+"</div>":"";
-    return "<article class='game-card "+(vr?"vr-game-card":"")+"'><div class='game-art'>"+(vr?"VR ":"")+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><div class='game-card-badges'><span class='badge'>"+escapeHtml(typeBadge)+"</span>"+(g.localOnly?"<span class='badge local-badge'>LOCAL</span>":"")+"</div><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p>"+vrMeta+"<div class='game-bottom'><strong>"+(g.price===0?"FREE":"€"+Number(g.price).toFixed(2))+"</strong><div><button class='icon-button wish-game' data-id='"+g.id+"' title='Wishlist'>"+(wished.has(g.id)?"♥":"♡")+"</button><button class='gold buy-game' data-id='"+g.id+"'>"+(owned?"Open Library":(g.price===0?"Get Free":"Buy Game"))+"</button></div></div></div></article>"
+    const packageBadge=apk?"QUEST APK":g.packageType==="exe"?"EXE":g.packageType==="zip"?"ZIP":"PACKAGE";
+    const vrMeta=vr?"<div class='vr-meta'><span>VR READY</span>"+(apk?"<span>QUEST APK</span>":"")+(g.vrDevice?"<span>"+escapeHtml(g.vrDevice.replaceAll("-"," ").toUpperCase())+"</span>":"")+(g.vrRuntime?"<span>"+escapeHtml(g.vrRuntime)+"</span>":"")+(g.vrHeadsets?"<small>"+escapeHtml(g.vrHeadsets)+"</small>":"")+"</div>":"";
+    return "<article class='game-card "+(vr?"vr-game-card":"")+(apk?" quest-apk-card":"")+"'><div class='game-art'>"+(apk?"QUEST ":"")+(vr&&!apk?"VR ":"")+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><div class='game-card-badges'><span class='badge'>"+escapeHtml(typeBadge)+"</span><span class='badge package-badge'>"+escapeHtml(packageBadge)+"</span>"+(g.localOnly?"<span class='badge local-badge'>LOCAL</span>":"")+"</div><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p>"+vrMeta+"<div class='game-bottom'><strong>"+(g.price===0?"FREE":"€"+Number(g.price).toFixed(2))+"</strong><div><button class='icon-button wish-game' data-id='"+g.id+"' title='Wishlist'>"+(wished.has(g.id)?"♥":"♡")+"</button><button class='gold buy-game' data-id='"+g.id+"'>"+(owned?"Open Library":(g.price===0?"Get Free":"Buy Game"))+"</button></div></div></div></article>"
   }).join("");
   box.querySelectorAll(".wish-game").forEach(b=>b.onclick=()=>toggleWishlist(b.dataset.id));
   box.querySelectorAll(".buy-game").forEach(b=>b.onclick=()=>{const g=currentGames.find(x=>x.id===b.dataset.id);if(g?.owned)show("library");else startCheckout(b.dataset.id)})
@@ -187,8 +188,12 @@ byId("upload-form")?.addEventListener("submit",async e=>{
   const data=new FormData(e.target),file=data.get("game");
   const gameType=String(data.get("gameType")||"desktop");
   const vrRuntime=String(data.get("vrRuntime")||"").trim();
-  const vrHeadsets=String(data.get("vrHeadsets")||"").trim();
+  const vrDevice=String(data.get("vrDevice")||"").trim();
+  const vrHeadsets=data.getAll("vrHeadsets").map(v=>String(v).trim()).filter(Boolean);
+  const ext=file instanceof File?file.name.toLowerCase().split(".").pop():"";
   if((gameType==="vr"||gameType==="both")&&!vrRuntime){s.textContent="Enter the VR runtime/technology for this game.";return}
+  if(ext==="apk"&&gameType==="desktop"){s.textContent="APK packages must be marked as VR or Desktop + VR.";return}
+  if(ext==="apk"&&!vrDevice){s.textContent="Select the VR device target for this APK.";return}
   try{
     const d=await api("/api/games/upload",{method:"POST",body:data});
     s.textContent="Uploaded "+d.game.title+". It is pending admin approval.";
@@ -196,11 +201,11 @@ byId("upload-form")?.addEventListener("submit",async e=>{
   }catch{}
   const session=readLocalSession();
   if(!session){s.textContent="Log in first. When the website backend is offline, uploads are saved securely to this browser.";show("account");return}
-  if(!(file instanceof File)||!file.size){s.textContent="Choose a ZIP or EXE game package.";return}
+  if(!(file instanceof File)||!file.size){s.textContent="Choose a ZIP, EXE or APK game package.";return}
   try{
     const titleValue=String(data.get("title")||"").trim(),description=String(data.get("description")||"").trim(),price=Number(data.get("price")||0);
     if(!titleValue||!description){s.textContent="Enter a game name and description.";return}
-    await localGamePut({id:"local-"+crypto.randomUUID(),title:titleValue,description,price,gameType,vrRuntime,vrHeadsets,creatorId:session.id,creatorName:session.name,filename:file.name,file,fileType:file.type,createdAt:new Date().toISOString()});
+    await localGamePut({id:"local-"+crypto.randomUUID(),title:titleValue,description,price,gameType,vrRuntime,vrDevice,vrHeadsets,packageType:ext,creatorId:session.id,creatorName:session.name,filename:file.name,file,fileType:file.type,createdAt:new Date().toISOString()});
     s.textContent="Saved "+titleValue+" locally. It survives browser and launcher updates, but is not published to other users until the real website backend is connected.";
     e.target.reset();setVrUploadFields();await loadStore();await loadLibrary();
   }catch(err){
