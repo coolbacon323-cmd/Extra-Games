@@ -1,5 +1,5 @@
 const views=[...document.querySelectorAll(".view")],byId=id=>document.getElementById(id),nav=[...document.querySelectorAll(".nav")],title=document.querySelector("#title");
-const names={home:"Discover something new",store:"Store",library:"Your Library",wishlist:"Wishlist",community:"Community",messages:"Messages",rules:"Rules",news:"News",upload:"Upload Game",account:"Account",settings:"Settings"};
+const names={home:"Discover something new",store:"Store",library:"Your Library",wishlist:"Wishlist",community:"Community",messages:"Messages",rules:"Rules",admin:"Admin",news:"News",upload:"Upload Game",account:"Account",settings:"Settings"};
 let currentGames=[];
 let searchText="";
 const WISHLIST_KEY="extra_games_wishlist_v1";
@@ -14,7 +14,7 @@ const readLocalSession=()=>{try{return JSON.parse(localStorage.getItem(LOCAL_SES
 const saveLocalSession=user=>{if(user)localStorage.setItem(LOCAL_SESSION_KEY,JSON.stringify(user));else localStorage.removeItem(LOCAL_SESSION_KEY)};
 async function localHash(value){const data=new TextEncoder().encode(value),digest=await crypto.subtle.digest("SHA-256",data);return[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("")}
 function localUserView(u){return{id:u.id,name:u.name,email:u.email,isAdmin:!!u.isAdmin,localOnly:true}}
-function show(view){views.forEach(v=>v.classList.toggle("active",v.id===view));nav.forEach(n=>n.classList.toggle("active",n.dataset.view===view));if(title)title.textContent=names[view]||"Extra Games";history.replaceState(null,"","#"+view);if(view==="store")loadStore();if(view==="library")loadLibrary();if(view==="wishlist")loadWishlist();if(view==="community")loadCommunity();if(view==="messages"){loadConversations()} }
+function show(view){views.forEach(v=>v.classList.toggle("active",v.id===view));nav.forEach(n=>n.classList.toggle("active",n.dataset.view===view));if(title)title.textContent=names[view]||"Extra Games";history.replaceState(null,"","#"+view);if(view==="store")loadStore();if(view==="library")loadLibrary();if(view==="wishlist")loadWishlist();if(view==="community")loadCommunity();if(view==="messages")loadConversations();if(view==="admin")loadAdmin(); }
 nav.forEach(n=>n.addEventListener("click",()=>show(n.dataset.view)));
 document.querySelectorAll("[data-view]").forEach(n=>n.addEventListener("click",()=>{if(n.dataset.view)show(n.dataset.view)}));
 async function api(path,options={}){
@@ -63,7 +63,26 @@ async function loadStore(){const box=byId("dynamic-games");if(!box)return;box.in
 function toggleWishlist(id){const list=readWishlist(),next=list.includes(id)?list.filter(x=>x!==id):[...list,id];saveWishlist(next);renderGames();if(document.querySelector("#wishlist.active"))loadWishlist()}
 async function loadWishlist(){const box=byId("wishlist-games");if(!box)return;const ids=new Set(readWishlist());if(!ids.size){box.innerHTML="<div class='empty'><strong>Your wishlist is empty</strong><p>Use ♡ on a store game to add it here.</p><button class='gold' data-view='store'>Browse Store</button></div>";return}try{if(!currentGames.length){const d=await api("/api/games");currentGames=d.games||[]}const list=currentGames.filter(g=>ids.has(g.id));if(!list.length){box.innerHTML="<div class='empty'><strong>No current store matches</strong><p>The saved games may have been removed from the store.</p></div>";return}box.innerHTML=list.map(g=>"<article class='game-card'><div class='game-art'>"+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><span class='badge'>WISHLIST</span><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p><div class='game-bottom'><strong>"+(g.price===0?"FREE":"€"+Number(g.price).toFixed(2))+"</strong><div><button class='outline remove-wish' data-id='"+g.id+"'>Remove</button><button class='gold buy-game' data-id='"+g.id+"'>"+(g.owned?"Open Library":(g.price===0?"Get Free":"Buy Game"))+"</button></div></div></div></article>").join("");box.querySelectorAll(".remove-wish").forEach(b=>b.onclick=()=>toggleWishlist(b.dataset.id));box.querySelectorAll(".buy-game").forEach(b=>b.onclick=()=>{const g=currentGames.find(x=>x.id===b.dataset.id);if(g?.owned)show("library");else startCheckout(b.dataset.id)})}catch(e){box.innerHTML="<div class='empty'><strong>Wishlist unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}}
 async function loadLibrary(){const box=byId("library-games");if(!box)return;box.innerHTML="<div class='empty compact'><strong>Loading library…</strong></div>";try{const d=await api("/api/library");const games=d.games||[];box.innerHTML=games.length?games.map(g=>"<article class='game-card'><div class='game-art'>"+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><span class='badge'>LIBRARY</span><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p><div class='game-bottom'><strong>READY</strong><button class='gold download-game' data-id='"+g.id+"'>Download</button></div></div></article>").join(""):"<div class='empty'><strong>Your library is empty</strong><p>Purchase or get a free game from the Store to see it here.</p><button class='gold' data-view='store'>Find Games</button></div>";box.querySelectorAll(".download-game").forEach(b=>b.onclick=()=>{location.href="/api/games/"+encodeURIComponent(b.dataset.id)+"/download"})}catch(e){box.innerHTML="<div class='empty'><strong>Log in to view your library</strong><p>"+escapeHtml(e.message)+"</p><button class='outline' data-view='account'>Open Account</button></div>"}}
-async function refreshAccount(){try{const d=await api("/api/auth/me"),panel=byId("account-panel"),msg=byId("account-message"),label=byId("profile-label");if(!panel||!msg)return;if(d.user){msg.textContent="Signed in as "+d.user.name+" ("+d.user.email+")."+(d.local?" Web-only account stored on this device.":"");if(label)label.textContent=d.user.name;panel.hidden=false;panel.innerHTML="<strong>"+(d.local?"Web account active":"Account active")+"</strong><p>"+(d.local?"This site is currently using its local account fallback because its server backend is not connected.":"Upload games, purchase approved games and manage your library.")+"</p><button class='outline' id='logout'>Log out</button>"+(d.user.isAdmin?"<button class='gold' id='admin-games'>Review uploads</button>":"");byId("logout").onclick=async()=>{await api("/api/auth/logout",{method:"POST"});location.reload()};byId("admin-games")?.addEventListener("click",loadAdmin)}else{msg.textContent="Sign in to buy games, manage your library and upload games.";if(label)label.textContent="Account";panel.hidden=true}}catch{}}
+async function refreshAccount(){try{
+  const d=await api("/api/auth/me"),panel=byId("account-panel"),msg=byId("account-message"),label=byId("profile-label"),adminNav=document.querySelector(".admin-nav");
+  if(!panel||!msg)return;
+  if(d.user){
+    const role=d.user.role||"user";
+    msg.textContent="Signed in as "+d.user.name+" ("+d.user.email+")."+(role!=="user"?" Role: "+role+".":"")+(d.local?" Web-only account stored on this device.":"");
+    if(label)label.textContent=d.user.name;
+    panel.hidden=false;
+    panel.innerHTML="<strong>"+(d.local?"Web account active":"Account active")+"</strong><p>"+(role!=="user"?"Staff role: "+escapeHtml(role)+". ":"")+(d.local?"This site is currently using its local account fallback because its server backend is not connected.":"Upload games, purchase approved games and manage your library.")+"</p><button class='outline' id='logout'>Log out</button>"+(d.user.isAdmin?"<button class='gold' id='open-admin-account'>Open Admin</button>":"");
+    byId("logout").onclick=async()=>{await api("/api/auth/logout",{method:"POST"});location.reload()};
+    byId("open-admin-account")?.addEventListener("click",()=>show("admin"));
+    if(adminNav)adminNav.hidden=!d.user.isAdmin;
+    if(d.user.isAdmin)loadAdminNotifications();
+  }else{
+    msg.textContent="Sign in to buy games, manage your library and upload games.";
+    if(label)label.textContent="Account";
+    panel.hidden=true;
+    if(adminNav)adminNav.hidden=true;
+  }
+}catch{document.querySelector(".admin-nav")?.setAttribute("hidden","hidden")}}
 byId("login-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("login-status");s.textContent="Signing in…";try{const d=await api("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formData(e.target))});s.textContent=d.local?"Logged in with this browser account.":"Logged in.";await refreshAccount();show("home")}catch(err){s.textContent=err.message}});
 byId("signup-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("signup-status");s.textContent="Creating account…";try{const d=await api("/api/auth/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formData(e.target))});s.textContent=d.local?"Account created on this device. Connect the website backend later to sync it across devices.":"Account created and signed in.";await refreshAccount();show("home")}catch(err){s.textContent=err.message}});
 byId("upload-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("upload-status");s.textContent="Uploading…";try{const d=await api("/api/games/upload",{method:"POST",body:new FormData(e.target)});s.textContent="Uploaded "+d.game.title+". It is pending admin approval.";e.target.reset()}catch(err){s.textContent=err.message}});
@@ -73,6 +92,72 @@ const globalSearch=byId("global-search");globalSearch?.addEventListener("input",
 byId("clear-search")?.addEventListener("click",()=>{searchText="";if(globalSearch)globalSearch.value="";renderGames()});
 byId("check-updates")?.addEventListener("click",async()=>{const s=byId("update-status");if(!launcherAvailable()){s.textContent="Open the Windows launcher to update it.";return}s.textContent="Checking…";try{const result=await window.launcher.checkForUpdates();s.textContent=result?.updateInfo?"Update found.":"You're up to date."}catch{s.textContent="Update check unavailable."}});
 if(launcherAvailable()){window.launcher.onUpdateAvailable(info=>{const s=byId("update-status");if(s)s.textContent="Update "+(info?.version||"available")+" ready to download.";});window.launcher.onUpdateDownloaded(info=>{const s=byId("update-status");if(s)s.textContent="Update downloaded. Restart to install.";});}
+async function loadAdmin(){
+  const me=await api("/api/auth/me");
+  if(!me.user||!me.user.isAdmin){alert("Staff access required.");show("account");return}
+  const role=me.user.role||"user";
+  byId("admin-current-role").textContent=role;
+  byId("admin-role-line").textContent="Signed in as "+me.user.name+" • "+role;
+  loadAdminUsers("");
+  loadAdminReports();
+  loadAdminNotifications();
+}
+function switchAdminTab(tab){
+  document.querySelectorAll(".admin-tab").forEach(b=>b.classList.toggle("active",b.dataset.adminTab===tab));
+  document.querySelectorAll(".admin-panel").forEach(p=>p.classList.toggle("active",p.id==="admin-"+tab));
+  if(tab==="users")loadAdminUsers(byId("admin-user-search")?.value.trim()||"");
+  if(tab==="reports")loadAdminReports();
+  if(tab==="notifications")loadAdminNotifications();
+}
+document.querySelectorAll(".admin-tab").forEach(b=>b.addEventListener("click",()=>switchAdminTab(b.dataset.adminTab)));
+function roleOptions(current){
+  return ["user","moderator","manager","admin","co-owner"].map(r=>"<option value='"+r+"' "+(r===current?"selected":"")+">"+r+"</option>").join("");
+}
+async function loadAdminUsers(q){
+  const box=byId("admin-user-results");if(!box)return;
+  box.innerHTML="<div class='empty compact'><strong>Loading users…</strong></div>";
+  try{
+    const d=await api("/api/admin/users?q="+encodeURIComponent(q||""));
+    if(!d.users?.length){box.innerHTML="<div class='empty compact'><strong>No users found</strong></div>";return}
+    box.innerHTML=d.users.map(u=>{
+      const owner=u.role==="owner";
+      return "<article class='admin-user-card'><div class='person-avatar'>"+escapeHtml(u.name.slice(0,2).toUpperCase())+"</div><div class='admin-user-main'><div class='admin-user-head'><div><span class='badge'>"+escapeHtml(u.role.toUpperCase())+"</span><h3>"+escapeHtml(u.name)+"</h3><small>"+escapeHtml(u.email)+"</small></div><span class='ban-state "+(u.banned?"banned":"ok")+"'>"+(u.banned?"BANNED":"ACTIVE")+"</span></div><div class='admin-user-actions'>"+(owner?"<span class='owner-lock'>OWNER ACCOUNT — PROTECTED</span>":"<><label>Role<select class='admin-role-select' data-id='"+u.id+"'>"+roleOptions(u.role)+"</select></label><button class='gold save-role' data-id='"+u.id+"'>Save Role</button>"+(u.banned?"<button class='outline unban-user' data-id='"+u.id+"'>Unban</button>":"<button class='danger-button ban-user' data-id='"+u.id+"'>Ban</button>")+"</>")+"</div>"+(u.banned&&u.bannedReason?"<p class='ban-reason'>Reason: "+escapeHtml(u.bannedReason)+"</p>":"")+"</div></article>"
+    }).join("");
+    box.querySelectorAll(".save-role").forEach(b=>b.onclick=async()=>{const select=box.querySelector(".admin-role-select[data-id='"+b.dataset.id+"']");try{await api("/api/admin/users/"+b.dataset.id+"/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:select.value})});loadAdminUsers(q)}catch(e){alert(e.message)}});
+    box.querySelectorAll(".ban-user").forEach(b=>b.onclick=async()=>{const reason=prompt("Ban reason:","Rule violation");if(reason===null)return;try{await api("/api/admin/users/"+b.dataset.id+"/ban",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason})});loadAdminUsers(q)}catch(e){alert(e.message)}});
+    box.querySelectorAll(".unban-user").forEach(b=>b.onclick=async()=>{try{await api("/api/admin/users/"+b.dataset.id+"/unban",{method:"POST"});loadAdminUsers(q)}catch(e){alert(e.message)}});
+  }catch(e){box.innerHTML="<div class='empty compact'><strong>Admin users unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+}
+byId("admin-user-search-button")?.addEventListener("click",()=>loadAdminUsers(byId("admin-user-search")?.value.trim()||""));
+byId("admin-user-search")?.addEventListener("keydown",e=>{if(e.key==="Enter")loadAdminUsers(byId("admin-user-search").value.trim())});
+async function loadAdminReports(){
+  const box=byId("admin-report-results");if(!box)return;
+  try{
+    const d=await api("/api/admin/reports");
+    const open=d.reports.filter(r=>r.status==="open");
+    byId("admin-report-count").textContent=String(open.length);
+    if(!d.reports.length){box.innerHTML="<div class='empty compact'><strong>No reports</strong></div>";return}
+    box.innerHTML=d.reports.map(r=>{
+      const evidence=(r.evidence||[]).map(e=>"<a class='evidence-link' target='_blank' rel='noopener' href='/api/reports/evidence/"+encodeURIComponent(e.filename)+"'>"+escapeHtml(e.originalFilename)+"</a>").join("");
+      return "<article class='admin-report-card'><div class='admin-report-head'><span class='badge'>"+escapeHtml(r.status.toUpperCase())+"</span><strong>"+escapeHtml(r.reason)+"</strong><span class='muted'>"+new Date(r.createdAt).toLocaleString()+"</span></div><p><strong>Target:</strong> "+escapeHtml(r.targetName)+" • <strong>Reporter:</strong> "+escapeHtml(r.reporterName)+"</p><p>"+escapeHtml(r.details)+"</p><div class='evidence-list'>"+(evidence||"<span class='muted'>No evidence attached.</span>")+"</div>"+(r.status==="open"?"<button class='outline close-report' data-id='"+r.id+"'>Close Report</button>":"")+"</article>"
+    }).join("");
+    box.querySelectorAll(".close-report").forEach(b=>b.onclick=async()=>{await api("/api/admin/reports/"+b.dataset.id+"/close",{method:"POST"});loadAdminReports()});
+  }catch(e){box.innerHTML="<div class='empty compact'><strong>Reports unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+}
+byId("admin-refresh-reports")?.addEventListener("click",loadAdminReports);
+async function loadAdminNotifications(){
+  const box=byId("admin-notification-results"),badge=byId("admin-badge"),count=byId("admin-unread-count");if(!box)return;
+  try{
+    const d=await api("/api/admin/notifications");
+    if(count)count.textContent=String(d.unread||0);
+    if(badge){badge.textContent=String(d.unread||0);badge.hidden=!d.unread}
+    box.innerHTML=d.notifications?.length?d.notifications.map(n=>"<article class='notification-card "+(n.read?"read":"unread")+"'><div><span class='badge'>"+escapeHtml(n.type.toUpperCase())+"</span><h3>"+escapeHtml(n.title)+"</h3><p>"+escapeHtml(n.body)+"</p><small>"+new Date(n.createdAt).toLocaleString()+"</small></div>"+(n.read?"":"<button class='outline mark-notification' data-id='"+n.id+"'>Mark read</button>")+"</article>").join(""):"<div class='empty compact'><strong>No notifications</strong></div>";
+    box.querySelectorAll(".mark-notification").forEach(b=>b.onclick=async()=>{await api("/api/admin/notifications/"+b.dataset.id+"/read",{method:"POST"});loadAdminNotifications()});
+  }catch(e){box.innerHTML="<div class='empty compact'><strong>Notifications unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+}
+byId("admin-read-all")?.addEventListener("click",async()=>{await api("/api/admin/notifications/read-all",{method:"POST"});loadAdminNotifications()});
+byId("admin-refresh-notifications")?.addEventListener("click",loadAdminNotifications);
+
 let selectedMessageUser=null;
 async function loadCommunity(){
   document.querySelectorAll(".social-tab").forEach((b,i)=>b.classList.toggle("active",i===0));
