@@ -81,7 +81,7 @@
       </div>
       <div class="store-toolbar">
         <div><strong id="store-count">Games</strong><span> • approved releases</span></div>
-        <button class="outline" id="clear-search">Clear search</button>
+        <div class="store-filters"><select id="game-type-filter" class="store-filter" aria-label="Game type"><option value="all">All games</option><option value="desktop">Desktop</option><option value="vr">VR</option><option value="both">Desktop + VR</option></select><button class="outline" id="clear-search">Clear search</button></div>
       </div>
       <div id="dynamic-games" class="dynamic-games"><div class="empty compact"><strong>Loading games…</strong></div></div>
     </section>
@@ -233,6 +233,8 @@
           <label>Game name<input name="title" required maxlength="80" placeholder="My Awesome Game"></label>
           <label>Description<textarea name="description" required maxlength="1000" placeholder="Tell players what your game is about."></textarea></label>
           <label>Price in EUR<input name="price" type="number" min="0" step="0.01" value="0"></label>
+          <label>Game type<select name="gameType" id="upload-game-type"><option value="desktop">Desktop game</option><option value="vr">VR game</option><option value="both">Desktop + VR</option></select></label>
+          <div id="vr-upload-fields" class="vr-upload-fields" hidden><label>VR runtime / technology<input name="vrRuntime" maxlength="200" placeholder="OpenXR, SteamVR, OpenXR + SteamVR"></label><label>Supported headsets<input name="vrHeadsets" maxlength="300" placeholder="Quest Link, Valve Index, HTC Vive, etc."></label></div>
           <label>Game package<input name="game" type="file" accept=".zip,.exe" required></label>
           <button class="gold" type="submit">Upload Game</button>
           <p id="upload-status" class="form-status"></p>
