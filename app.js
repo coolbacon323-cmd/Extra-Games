@@ -58,8 +58,14 @@ function localGamePublic(g){
 async function localHash(value){const data=new TextEncoder().encode(value),digest=await crypto.subtle.digest("SHA-256",data);return[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("")}
 function localUserView(u){const email=String(u.email||"").toLowerCase();const role=u.role||(email===ADMIN_EMAIL?"owner":"user");return{id:u.id,name:u.name,email:u.email,isAdmin:!!u.isAdmin||role!=="user"||email===ADMIN_EMAIL,role,localOnly:true}}
 function show(view){views.forEach(v=>v.classList.toggle("active",v.id===view));nav.forEach(n=>n.classList.toggle("active",n.dataset.view===view));if(title)title.textContent=names[view]||"Extra Games";history.replaceState(null,"","#"+view);if(view==="store")loadStore();if(view==="library")loadLibrary();if(view==="wishlist")loadWishlist();if(view==="community")loadCommunity();if(view==="messages")loadConversations();if(view==="admin")loadAdmin(); }
-nav.forEach(n=>n.addEventListener("click",()=>show(n.dataset.view)));
-document.querySelectorAll("[data-view]").forEach(n=>n.addEventListener("click",()=>{if(n.dataset.view)show(n.dataset.view)}));
+document.addEventListener("click",e=>{
+  const target=e.target.closest("[data-view]");
+  if(!target)return;
+  const view=target.dataset.view;
+  if(!view)return;
+  e.preventDefault();
+  show(view);
+});
 async function api(path,options={}){
   try{
     const r=await fetch(path,options);
