@@ -306,86 +306,138 @@ byId("admin-read-all")?.addEventListener("click",async()=>{await api("/api/admin
 byId("admin-refresh-notifications")?.addEventListener("click",loadAdminNotifications);
 
 let selectedMessageUser=null;
+let communityRequest=0;
+
 async function loadCommunity(){
-  document.querySelectorAll(".social-tab").forEach((b,i)=>b.classList.toggle("active",i===0));
-  document.querySelectorAll(".social-panel").forEach((p,i)=>p.classList.toggle("active",i===0));
-  await Promise.all([loadFriends(),loadCommunities(""),loadCommunityInvites()]);
+  switchSocialTab("people");
+  await Promise.allSettled([loadFriends(),loadCommunities(""),loadCommunityInvites()]);
 }
 function switchSocialTab(tab){
   document.querySelectorAll(".social-tab").forEach(b=>b.classList.toggle("active",b.dataset.socialTab===tab));
   document.querySelectorAll(".social-panel").forEach(p=>p.classList.toggle("active",p.id==="social-"+tab));
+  if(tab==="people"&&byId("people-search")?.value.trim())searchPeople();
   if(tab==="friends")loadFriends();
-  if(tab==="communities")loadCommunities("");
+  if(tab==="communities")loadCommunities(byId("community-search")?.value.trim()||"");
   if(tab==="invites")loadCommunityInvites();
 }
 document.querySelectorAll(".social-tab").forEach(b=>b.addEventListener("click",()=>switchSocialTab(b.dataset.socialTab)));
 
+function personActionsForSearch(u){
+  const status=u.friendStatus;
+  let friendButton;
+  if(status==="accepted"){
+    friendButton="<button class='outline remove-friend' data-friend-id='"+escapeHtml(u.friendRequestId||"")+"'>Remove Friend</button>";
+  }else if(status==="pending"&&u.friendDirection==="incoming"){
+    friendButton="<button class='gold accept-friend' data-id='"+escapeHtml(u.friendRequestId||"")+"'>Accept</button><button class='outline decline-friend' data-id='"+escapeHtml(u.friendRequestId||"")+"'>Decline</button>";
+  }else if(status==="pending"){
+    friendButton="<button class='outline' disabled>Request pending</button>";
+  }else{
+    friendButton="<button class='gold add-friend' data-id='"+escapeHtml(u.id)+"'>Add Friend</button>";
+  }
+  return friendButton+"<button class='outline message-user' data-id='"+escapeHtml(u.id)+"'>Message</button><button class='outline block-user' data-id='"+escapeHtml(u.id)+"'>Block</button><button class='danger-button report-user' data-id='"+escapeHtml(u.id)+"' data-name='"+escapeHtml(u.name)+"'>Report</button>";
+}
 async function searchPeople(){
-  const q=byId("people-search")?.value.trim()||"";
-  const box=byId("people-results");if(!box)return;
+  const q=byId("people-search")?.value.trim()||"",box=byId("people-results");if(!box)return;
   if(q.length<2){box.innerHTML="<div class='empty compact'><strong>Search for a player</strong><p>Enter at least 2 characters of their display name.</p></div>";return}
   box.innerHTML="<div class='empty compact'><strong>Searching…</strong></div>";
   try{
     const d=await api("/api/users/search?q="+encodeURIComponent(q));
     if(!d.users?.length){box.innerHTML="<div class='empty compact'><strong>No players found</strong><p>Try another display name.</p></div>";return}
-    box.innerHTML=d.users.map(u=>{
-      const status=u.friendStatus;
-      const friendButton=status==="accepted"?"<button class='outline' disabled>Friends</button>":status==="pending"?"<button class='outline' disabled>Request pending</button>":"<button class='gold add-friend' data-id='"+u.id+"'>Add Friend</button>";
-      return "<article class='person-card'><div class='person-avatar'>"+escapeHtml(u.name.slice(0,2).toUpperCase())+"</div><div class='person-main'><span class='badge'>PLAYER</span><h3>"+escapeHtml(u.name)+"</h3><div class='person-actions'>"+friendButton+"<button class='outline message-user' data-id='"+u.id+"'>Message</button><button class='outline block-user' data-id='"+u.id+"'>Block</button><button class='danger-button report-user' data-id='"+u.id+"' data-name='"+escapeHtml(u.name)+"'>Report</button></div></div></article>"
-    }).join("");
-    box.querySelectorAll(".add-friend").forEach(b=>b.onclick=async()=>{try{await api("/api/friends/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:b.dataset.id})});searchPeople()}catch(e){alert(e.message)}});
-    box.querySelectorAll(".message-user").forEach(b=>b.onclick=()=>openMessageUser(b.dataset.id));
-    box.querySelectorAll(".block-user").forEach(b=>b.onclick=()=>blockUser(b.dataset.id));
-    box.querySelectorAll(".report-user").forEach(b=>b.onclick=()=>openReportModal(b.dataset.id,b.dataset.name));
+    box.innerHTML=d.users.map(u=>"<article class='person-card'><div class='person-avatar'>"+escapeHtml(u.name.slice(0,2).toUpperCase())+"</div><div class='person-main'><span class='badge'>PLAYER</span><h3>"+escapeHtml(u.name)+"</h3><div class='person-actions'>"+personActionsForSearch(u)+"</div></div></article>").join("");
+    bindPersonActions(box);
   }catch(e){box.innerHTML="<div class='empty compact'><strong>Player search unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+}
+function bindPersonActions(box){
+  box.querySelectorAll(".add-friend").forEach(b=>b.onclick=async()=>{
+    b.disabled=true;try{await api("/api/friends/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:b.dataset.id})});searchPeople();loadFriends()}catch(e){b.disabled=false;alert(e.message)}
+  });
+  box.querySelectorAll(".accept-friend").forEach(b=>b.onclick=async()=>{try{await api("/api/friends/"+b.dataset.id+"/accept",{method:"POST"});searchPeople();loadFriends()}catch(e){alert(e.message)}});
+  box.querySelectorAll(".decline-friend").forEach(b=>b.onclick=async()=>{try{await api("/api/friends/"+b.dataset.id+"/decline",{method:"POST"});searchPeople();loadFriends()}catch(e){alert(e.message)}});
+  box.querySelectorAll(".remove-friend").forEach(b=>b.onclick=()=>removeFriend(b.dataset.friendId,()=>searchPeople()));
+  box.querySelectorAll(".message-user").forEach(b=>b.onclick=()=>openMessageUser(b.dataset.id));
+  box.querySelectorAll(".block-user").forEach(b=>b.onclick=()=>blockUser(b.dataset.id));
+  box.querySelectorAll(".report-user").forEach(b=>b.onclick=()=>openReportModal(b.dataset.id,b.dataset.name));
 }
 byId("people-search-button")?.addEventListener("click",searchPeople);
 byId("people-search")?.addEventListener("keydown",e=>{if(e.key==="Enter")searchPeople()});
 
+async function removeFriend(id,after){
+  if(!id)return;
+  if(!confirm("Remove this friendship?"))return;
+  try{await api("/api/friends/"+encodeURIComponent(id),{method:"DELETE"});after?.();loadFriends()}catch(e){alert(e.message)}
+}
 async function blockUser(id){
-  if(!confirm("Block this player? They will not be able to message or add you while blocked."))return;
-  try{await api("/api/blocks/"+encodeURIComponent(id),{method:"POST"});alert("Player blocked.");searchPeople()}catch(e){alert(e.message)}
+  if(!confirm("Block this player? Existing friendship/request will also be removed."))return;
+  try{await api("/api/blocks/"+encodeURIComponent(id),{method:"POST"});await loadFriends();await searchPeople()}catch(e){alert(e.message)}
 }
 async function loadFriends(){
-  const box=byId("friends-list"),requests=byId("friend-requests");if(!box||!requests)return;
+  const box=byId("friends-list"),requests=byId("friend-requests"),blocked=byId("blocked-list");if(!box||!requests)return;
   try{
     const d=await api("/api/friends");
-    requests.innerHTML=d.incoming?.length?"<div class='subheading'>Incoming requests</div>"+d.incoming.map(x=>"<article class='person-card compact-card'><div><strong>"+escapeHtml(x.user.name)+"</strong><p>Wants to add you.</p></div><div class='person-actions'><button class='gold accept-friend' data-id='"+x.id+"'>Accept</button><button class='outline decline-friend' data-id='"+x.id+"'>Decline</button></div></article>").join(""):"";
-    requests.querySelectorAll(".accept-friend").forEach(b=>b.onclick=async()=>{await api("/api/friends/"+b.dataset.id+"/accept",{method:"POST"});loadFriends()});
-    requests.querySelectorAll(".decline-friend").forEach(b=>b.onclick=async()=>{await api("/api/friends/"+b.dataset.id+"/decline",{method:"POST"});loadFriends()});
-    box.innerHTML=d.friends?.length?d.friends.map(u=>"<article class='person-card compact-card'><div class='person-avatar'>"+escapeHtml(u.name.slice(0,2).toUpperCase())+"</div><div class='person-main'><h3>"+escapeHtml(u.name)+"</h3><div class='person-actions'><button class='outline friend-message' data-id='"+u.id+"'>Message</button><button class='danger-button friend-block' data-id='"+u.id+"'>Block</button></div></div></article>").join(""):"<div class='empty compact'><strong>No friends yet</strong><p>Use People to search display names and send requests.</p></div>";
+    const incoming=d.incoming||[],outgoing=d.outgoing||[];
+    requests.innerHTML=(incoming.length||outgoing.length)?
+      (incoming.length?"<div class='subheading'>Incoming requests</div>"+incoming.map(x=>"<article class='person-card compact-card'><div class='person-avatar'>"+escapeHtml(x.user.name.slice(0,2).toUpperCase())+"</div><div class='person-main'><strong>"+escapeHtml(x.user.name)+"</strong><p>Wants to add you.</p><div class='person-actions'><button class='gold accept-friend' data-id='"+x.id+"'>Accept</button><button class='outline decline-friend' data-id='"+x.id+"'>Decline</button></div></div></article>").join(""):"")+
+      (outgoing.length?"<div class='subheading'>Sent requests</div>"+outgoing.map(x=>"<article class='person-card compact-card'><div><strong>"+escapeHtml(x.user.name)+"</strong><p>Request pending.</p></div><button class='outline decline-friend' data-id='"+x.id+"'>Cancel</button></article>").join(""):"")
+      :"";
+    requests.querySelectorAll(".accept-friend").forEach(b=>b.onclick=async()=>{try{await api("/api/friends/"+b.dataset.id+"/accept",{method:"POST"});loadFriends()}catch(e){alert(e.message)}});
+    requests.querySelectorAll(".decline-friend").forEach(b=>b.onclick=async()=>{try{await api("/api/friends/"+b.dataset.id+"/decline",{method:"POST"});loadFriends()}catch(e){alert(e.message)}});
+
+    box.innerHTML=d.friends?.length?d.friends.map(u=>"<article class='person-card compact-card'><div class='person-avatar'>"+escapeHtml(u.name.slice(0,2).toUpperCase())+"</div><div class='person-main'><h3>"+escapeHtml(u.name)+"</h3><div class='person-actions'><button class='outline friend-message' data-id='"+u.id+"'>Message</button><button class='outline friend-remove' data-id='"+u.friendshipId+"'>Remove Friend</button><button class='danger-button friend-block' data-id='"+u.id+"'>Block</button></div></div></article>").join(""):"<div class='empty compact'><strong>No friends yet</strong><p>Use People to search display names and send requests.</p></div>";
     box.querySelectorAll(".friend-message").forEach(b=>b.onclick=()=>openMessageUser(b.dataset.id));
+    box.querySelectorAll(".friend-remove").forEach(b=>b.onclick=()=>removeFriend(b.dataset.id,()=>loadFriends()));
     box.querySelectorAll(".friend-block").forEach(b=>b.onclick=()=>blockUser(b.dataset.id));
-  }catch(e){box.innerHTML="<div class='empty compact'><strong>Friends unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+
+    if(blocked){
+      const bd=await api("/api/blocks");
+      blocked.innerHTML=bd.users?.length?bd.users.map(u=>"<article class='person-card compact-card'><div class='person-avatar'>"+escapeHtml(u.name.slice(0,2).toUpperCase())+"</div><div class='person-main'><h3>"+escapeHtml(u.name)+"</h3><div class='person-actions'><button class='outline unblock-user' data-id='"+u.id+"'>Unblock</button></div></div></article>").join(""):"<div class='empty compact'><strong>No blocked players</strong></div>";
+      blocked.querySelectorAll(".unblock-user").forEach(b=>b.onclick=async()=>{try{await api("/api/blocks/"+encodeURIComponent(b.dataset.id),{method:"DELETE"});loadFriends()}catch(e){alert(e.message)}});
+    }
+  }catch(e){box.innerHTML="<div class='empty compact'><strong>Friends unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>";if(requests)requests.innerHTML="";if(blocked)blocked.innerHTML="<div class='empty compact'><strong>Blocked players unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
 }
 async function loadCommunities(q){
   const box=byId("community-results");if(!box)return;
+  const requestId=++communityRequest;
   box.innerHTML="<div class='empty compact'><strong>Loading communities…</strong></div>";
   try{
     const d=await api("/api/communities?q="+encodeURIComponent(q||""));
+    if(requestId!==communityRequest)return;
     if(!d.communities?.length){box.innerHTML="<div class='empty compact'><strong>No communities found</strong><p>Create one or search another group name.</p></div>";return}
     box.innerHTML=d.communities.map(c=>{
       const vis=c.visibility==="public"?"PUBLIC":c.visibility==="private"?"PRIVATE":"INVITE ONLY";
-      const join=c.isMember?"<button class='outline' disabled>Joined</button>":"<button class='gold join-community' data-id='"+c.id+"'>"+(c.isInvited?"Accept Invite":"Join")+"</button>";
-      const invite=c.canInvite?"<button class='outline invite-community' data-id='"+c.id+"'>Invite Player</button>":"";
-      return "<article class='community-result'><div class='community-mark'>◆</div><div class='community-main'><div class='community-head'><span class='badge'>"+vis+"</span><span class='muted'>"+c.memberCount+" member"+(c.memberCount===1?"":"s")+"</span></div><h3>"+escapeHtml(c.name)+"</h3><p>"+escapeHtml(c.description||"No description.")+"</p><div class='person-actions'>"+join+invite+"</div></div></article>"
+      let actions="";
+      if(c.isMember){
+        actions+="<button class='outline' disabled>Joined</button>";
+        if(!c.isOwner)actions+="<button class='outline leave-community' data-id='"+c.id+"'>Leave</button>";
+      }else actions+="<button class='gold join-community' data-id='"+c.id+"'>"+(c.isInvited?"Accept Invite":"Join")+"</button>";
+      if(c.canInvite)actions+="<button class='outline invite-community' data-id='"+c.id+"'>Invite Player</button>";
+      if(c.canManage)actions+="<button class='outline manage-community' data-id='"+c.id+"'>Manage</button><button class='danger-button delete-community' data-id='"+c.id+"'>Delete</button>";
+      return "<article class='community-result'><div class='community-mark'>◆</div><div class='community-main'><div class='community-head'><span class='badge'>"+vis+"</span><span class='muted'>"+c.memberCount+" member"+(c.memberCount===1?"":"s")+"</span></div><h3>"+escapeHtml(c.name)+"</h3><p>"+escapeHtml(c.description||"No description.")+"</p><div class='person-actions'>"+actions+"</div></div></article>";
     }).join("");
-    box.querySelectorAll(".join-community").forEach(b=>b.onclick=async()=>{try{await api("/api/communities/"+b.dataset.id+"/join",{method:"POST"});loadCommunities(q);loadCommunityInvites()}catch(e){alert(e.message)}});
+    box.querySelectorAll(".join-community").forEach(b=>b.onclick=async()=>{try{await api("/api/communities/"+b.dataset.id+"/join",{method:"POST"});await loadCommunities(q);await loadCommunityInvites()}catch(e){alert(e.message)}});
+    box.querySelectorAll(".leave-community").forEach(b=>b.onclick=async()=>{if(!confirm("Leave this community?"))return;try{await api("/api/communities/"+b.dataset.id+"/leave",{method:"POST"});await loadCommunities(q)}catch(e){alert(e.message)}});
+    box.querySelectorAll(".delete-community").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this community permanently? This cannot be undone."))return;try{await api("/api/communities/"+b.dataset.id,{method:"DELETE"});await loadCommunities(q)}catch(e){alert(e.message)}});
     box.querySelectorAll(".invite-community").forEach(b=>b.onclick=()=>inviteToCommunity(b.dataset.id));
+    box.querySelectorAll(".manage-community").forEach(b=>b.onclick=()=>manageCommunity(b.dataset.id));
   }catch(e){box.innerHTML="<div class='empty compact'><strong>Communities unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
 }
 byId("community-search-button")?.addEventListener("click",()=>loadCommunities(byId("community-search")?.value.trim()||""));
 byId("community-search")?.addEventListener("keydown",e=>{if(e.key==="Enter")loadCommunities(byId("community-search").value.trim())});
-byId("community-create-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("community-create-status");s.textContent="Creating…";try{await api("/api/communities",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formData(e.target))});s.textContent="Community created.";e.target.reset();loadCommunities("")}catch(err){s.textContent=err.message}});
+byId("community-create-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();const s=byId("community-create-status"),button=e.target.querySelector("button[type=submit]");
+  s.textContent="Creating…";if(button)button.disabled=true;
+  try{await api("/api/communities",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formData(e.target))});s.textContent="Community created.";e.target.reset();await loadCommunities("")}
+  catch(err){s.textContent=err.message}
+  finally{if(button)button.disabled=false}
+});
 async function inviteToCommunity(id){
   const name=prompt("Enter the exact display name to invite:");
-  if(!name)return;
+  if(!name?.trim())return;
   try{
     const d=await api("/api/users/search?q="+encodeURIComponent(name.trim()));
-    const user=(d.users||[]).find(u=>u.name.toLowerCase()===name.trim().toLowerCase())||d.users?.[0];
-    if(!user)throw new Error("Player not found.");
-    await api("/api/communities/"+id+"/invite",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:user.id})});
-    alert("Invite sent to "+user.name+".");
+    const matches=(d.users||[]).filter(u=>u.name.toLowerCase()===name.trim().toLowerCase());
+    if(matches.length!==1)throw new Error(matches.length?"Multiple players have matching names. Search for the player in People and use the exact account.":"Player not found.");
+    await api("/api/communities/"+id+"/invite",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:matches[0].id})});
+    alert("Invite sent to "+matches[0].name+".");await loadCommunityInvites();await loadCommunities(byId("community-search")?.value.trim()||"");
   }catch(e){alert(e.message)}
 }
 async function loadCommunityInvites(){
@@ -393,9 +445,33 @@ async function loadCommunityInvites(){
   try{
     const d=await api("/api/communities/invites");
     box.innerHTML=d.invites?.length?d.invites.map(x=>"<article class='community-result'><div class='community-mark'>✦</div><div class='community-main'><span class='badge'>INVITE</span><h3>"+escapeHtml(x.community.name)+"</h3><p>"+escapeHtml(x.community.description||"")+"</p><div class='person-actions'><button class='gold accept-community' data-id='"+x.id+"' data-community='"+x.community.id+"'>Join Community</button><button class='outline decline-community' data-id='"+x.id+"'>Decline</button></div></div></article>").join(""):"<div class='empty compact'><strong>No pending invites</strong></div>";
-    box.querySelectorAll(".accept-community").forEach(b=>b.onclick=async()=>{try{await api("/api/communities/"+b.dataset.community+"/join",{method:"POST"});loadCommunityInvites();loadCommunities("")}catch(e){alert(e.message)}});
-    box.querySelectorAll(".decline-community").forEach(b=>b.onclick=async()=>{await api("/api/communities/invites/"+b.dataset.id+"/decline",{method:"POST"});loadCommunityInvites()});
+    box.querySelectorAll(".accept-community").forEach(b=>b.onclick=async()=>{try{await api("/api/communities/"+b.dataset.community+"/join",{method:"POST"});await loadCommunityInvites();await loadCommunities("")}catch(e){alert(e.message)}});
+    box.querySelectorAll(".decline-community").forEach(b=>b.onclick=async()=>{try{await api("/api/communities/invites/"+b.dataset.id+"/decline",{method:"POST"});await loadCommunityInvites()}catch(e){alert(e.message)}});
   }catch(e){box.innerHTML="<div class='empty compact'><strong>Invites unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+}
+async function manageCommunity(id){
+  let modal=byId("community-manage-modal");
+  if(modal)modal.remove();
+  try{
+    const d=await api("/api/communities/"+encodeURIComponent(id)+"/members");
+    const c=d.community, members=d.members||[];
+    modal=document.createElement("div");modal.id="community-manage-modal";modal.className="modal-backdrop";
+    modal.innerHTML="<div class='modal-card'><button class='modal-close' id='community-manage-close'>×</button><span class='eyebrow'>COMMUNITY MANAGEMENT</span><h2>"+escapeHtml(c.name)+"</h2><p>Manage members and community moderators.</p><div class='community-member-list'>"+(members.length?members.map(m=>{
+      const owner=m.role==="owner",roleOptions=owner?"<span class='badge'>OWNER</span>":"<select class='community-role-select' data-user-id='"+m.id+"'><option value='member' "+(m.role==="member"?"selected":"")+">Member</option><option value='moderator' "+(m.role==="moderator"?"selected":"")+">Moderator</option></select><button class='outline save-community-role' data-user-id='"+m.id+"'>Save</button><button class='danger-button remove-community-member' data-user-id='"+m.id+"'>Remove</button>";
+      return "<article class='person-card compact-card'><div class='person-avatar'>"+escapeHtml(m.name.slice(0,2).toUpperCase())+"</div><div class='person-main'><h3>"+escapeHtml(m.name)+"</h3><div class='person-actions'>"+roleOptions+"</div></div></article>";
+    }).join(""):"<div class='empty compact'><strong>No members</strong></div>")+"</div></div>";
+    document.body.appendChild(modal);
+    byId("community-manage-close").onclick=()=>modal.remove();
+    modal.addEventListener("click",e=>{if(e.target===modal)modal.remove()});
+    modal.querySelectorAll(".save-community-role").forEach(b=>b.onclick=async()=>{
+      const select=modal.querySelector(".community-role-select[data-user-id='"+b.dataset.userId+"']");
+      try{await api("/api/communities/"+id+"/members/"+b.dataset.userId+"/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:select.value})});await manageCommunity(id)}catch(e){alert(e.message)}
+    });
+    modal.querySelectorAll(".remove-community-member").forEach(b=>b.onclick=async()=>{
+      if(!confirm("Remove this member from the community?"))return;
+      try{await api("/api/communities/"+id+"/members/"+b.dataset.userId,{method:"DELETE"});await manageCommunity(id);await loadCommunities(byId("community-search")?.value.trim()||"")}catch(e){alert(e.message)}
+    });
+  }catch(e){alert(e.message)}
 }
 
 async function loadConversations(){
