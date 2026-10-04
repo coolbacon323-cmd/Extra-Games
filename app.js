@@ -113,12 +113,19 @@ function renderGames(){
     const typeBadge=g.gameType==="both"?"DESKTOP + VR":vr?"VR":"DESKTOP";
     const packageBadge=apk?"QUEST APK":g.packageType==="exe"?"EXE":g.packageType==="zip"?"ZIP":"PACKAGE";
     const reportButton="<button class='outline report-game' data-id='"+escapeHtml(g.id)+"'>Report</button>";
+    const deleteButton=g.creatorId===window.__extraGamesUserId?"<button class='danger-button delete-game' data-id='"+escapeHtml(g.id)+"'>Delete</button>":"";
     const vrMeta=vr?"<div class='vr-meta'><span>VR READY</span>"+(apk?"<span>QUEST APK</span>":"")+(g.vrDevice?"<span>"+escapeHtml(g.vrDevice.replaceAll("-"," ").toUpperCase())+"</span>":"")+(g.vrRuntime?"<span>"+escapeHtml(g.vrRuntime)+"</span>":"")+(g.vrHeadsets?"<small>"+escapeHtml(g.vrHeadsets)+"</small>":"")+"</div>":"";
     return "<article class='game-card "+(vr?"vr-game-card":"")+(apk?" quest-apk-card":"")+"'><div class='game-art'>"+(apk?"QUEST ":"")+(vr&&!apk?"VR ":"")+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><div class='game-card-badges'><span class='badge'>"+escapeHtml(typeBadge)+"</span><span class='badge package-badge'>"+escapeHtml(packageBadge)+"</span>"+(g.localOnly?"<span class='badge local-badge'>LOCAL</span>":"")+"</div><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p>"+vrMeta+"<div class='game-bottom'><strong>"+(g.price===0?"FREE":"€"+Number(g.price).toFixed(2))+"</strong><div><button class='icon-button wish-game' data-id='"+g.id+"' title='Wishlist'>"+(wished.has(g.id)?"♥":"♡")+"</button><button class='gold buy-game' data-id='"+g.id+"'>"+(owned?"Open Library":(g.price===0?"Get Free":"Buy Game"))+"</button>"+reportButton</div></div></div></article>"
   }).join("");
   box.querySelectorAll(".wish-game").forEach(b=>b.onclick=()=>toggleWishlist(b.dataset.id));
+  box.querySelectorAll(".delete-game").forEach(b=>b.onclick=async()=>{
+    const g=currentGames.find(x=>x.id===b.dataset.id);
+    if(!g||!confirm("Delete "+g.title+"? This removes the game from the public Store."))return;
+    try{await api("/api/games/"+encodeURIComponent(g.id),{method:"DELETE"});currentGames=currentGames.filter(x=>x.id!==g.id);renderGames();alert("Game deleted.");}
+    catch(e){alert(e.message)}
+  });
   box.querySelectorAll(".report-game").forEach(b=>b.onclick=async()=>{
-    const me=await api("/api/auth/me");
+    const me=await api("/api/auth/me");window.__extraGamesUserId=me.user?.id||null;
     if(!me.user){show("account");alert("Log in to report a game.");return}
     const reason=prompt("Why are you reporting this game?","Inappropriate content");
     if(reason===null)return;
@@ -231,7 +238,7 @@ async function startCheckout(gameId){
   try{
     const game=currentGames.find(g=>g.id===gameId);
     if(game?.localOnly&&game?.owned){show("library");return}
-    const me=await api("/api/auth/me");
+    const me=await api("/api/auth/me");window.__extraGamesUserId=me.user?.id||null;
     if(!me.user){show("account");throw new Error("Log in or create an account before purchasing.")}
     if(me.local)throw new Error("The website is in local mode. Your uploaded games are saved on this device; paid purchases need the connected website backend.");
     const d=await api("/api/create-checkout-session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({gameId})});
@@ -248,7 +255,7 @@ setVrUploadFields();
 byId("check-updates")?.addEventListener("click",async()=>{const s=byId("update-status");if(!launcherAvailable()){s.textContent="Open the Windows launcher to update it.";return}s.textContent="Checking…";try{const result=await window.launcher.checkForUpdates();s.textContent=result?.updateInfo?"Update found.":"You're up to date."}catch{s.textContent="Update check unavailable."}});
 if(launcherAvailable()){window.launcher.onUpdateAvailable(info=>{const s=byId("update-status");if(s)s.textContent="Update "+(info?.version||"available")+" ready to download.";});window.launcher.onUpdateDownloaded(info=>{const s=byId("update-status");if(s)s.textContent="Update downloaded. Restart to install.";});}
 async function loadAdmin(){
-  const me=await api("/api/auth/me");
+  const me=await api("/api/auth/me");window.__extraGamesUserId=me.user?.id||null;
   if(!me.user||!me.user.isAdmin){alert("Staff access required.");show("account");return}
   const role=me.user.role||"user";
   currentStaffRole=role;
