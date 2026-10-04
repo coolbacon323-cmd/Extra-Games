@@ -104,6 +104,20 @@ app.delete("/api/blocks/:userId",auth,(req,res)=>{
   const blocks=readJson(files.blocks,[]).filter(x=>!(x.blockerId===req.user.id&&x.blockedId===req.params.userId));
   writeJson(files.blocks,blocks);res.json({ok:true});
 });
+app.get("/api/messages/conversations",auth,(req,res)=>{
+  const messages=readJson(files.messages,[]),users=readJson(files.users,[]),latest=new Map();
+  for(const m of messages){
+    if(m.fromId!==req.user.id&&m.toId!==req.user.id)continue;
+    if(blockedPair(req.user.id,m.fromId===req.user.id?m.toId:m.fromId))continue;
+    const otherId=m.fromId===req.user.id?m.toId:m.fromId;
+    const prev=latest.get(otherId);
+    if(!prev||m.createdAt>prev.createdAt)latest.set(otherId,m);
+  }
+  res.json({conversations:[...latest.values()].map(m=>{
+    const otherId=m.fromId===req.user.id?m.toId:m.fromId,user=users.find(u=>u.id===otherId);
+    return user?{user:publicProfile(user),lastMessage:m.body,createdAt:m.createdAt}:null;
+  }).filter(Boolean).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))});
+});
 app.get("/api/messages",auth,(req,res)=>{
   const otherId=String(req.query.userId||"");
   if(!otherId||blockedPair(req.user.id,otherId))return res.json({messages:[]});
@@ -137,7 +151,7 @@ app.get("/api/communities",auth,(req,res)=>{
     const invited=invites.some(i=>i.communityId===c.id&&i.userId===req.user.id&&i.status==="pending");
     const visible=c.visibility==="public"||c.visibility==="invite"||member||invited||c.ownerId===req.user.id;
     return visible&&(!q||c.name.toLowerCase().includes(q));
-  }).slice(0,50).map(c=>({...c,members:undefined,memberCount:c.members.length,isMember:c.members.some(m=>m.userId===req.user.id),isInvited:invites.some(i=>i.communityId===c.id&&i.userId===req.user.id&&i.status==="pending")}));
+  }).slice(0,50).map(c=>({...c,members:undefined,memberCount:c.members.length,isMember:c.members.some(m=>m.userId===req.user.id),canInvite:c.ownerId===req.user.id,isInvited:invites.some(i=>i.communityId===c.id&&i.userId===req.user.id&&i.status==="pending")}));
   res.json({communities:results});
 });
 app.post("/api/communities",auth,(req,res)=>{
