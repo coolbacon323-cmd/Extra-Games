@@ -7,7 +7,7 @@ const Stripe=require("stripe");
 const app=express();
 const port=process.env.PORT===undefined?3000:Number(process.env.PORT);
 const ADMIN_EMAIL=String(process.env.ADMIN_EMAIL||"cool.bacon323@gmail.com").trim().toLowerCase();
-const VERSION="0.6.0";
+const VERSION="0.6.1";
 app.disable("x-powered-by");
 const dataDir=path.resolve(process.env.EXTRA_GAMES_DATA_DIR||path.join(__dirname,"data")),uploadDir=path.join(dataDir,"uploads");
 fs.mkdirSync(uploadDir,{recursive:true});
@@ -167,12 +167,12 @@ const evidenceUpload=multer({storage:multer.diskStorage({destination:evidenceDir
   cb(ok?null:new Error("Evidence must be PNG, JPG, JPEG, WEBP, GIF or MP4."));
 }});
 app.post("/api/reports",auth,evidenceUpload.array("evidence",5),(req,res)=>{
-  const targetId=String(req.body?.targetUserId||""),reason=String(req.body?.reason||"").trim(),details=String(req.body?.details||"").trim(),target=getUserById(targetId);
-  if(!target||target.id===req.user.id){for(const f of req.files||[])fs.rmSync(f.path,{force:true});return res.status(404).json({error:"Reported player not found."})}
+  const targetId=String(req.body?.targetUserId||""),targetGameId=String(req.body?.targetGameId||""),reason=String(req.body?.reason||"").trim(),details=String(req.body?.details||"").trim(),target=getUserById(targetId),targetGame=targetGameId?readJson(files.games,[]).find(g=>g.id===targetGameId):null;
+  if((!target&&!targetGame)||target?.id===req.user.id){for(const f of req.files||[])fs.rmSync(f.path,{force:true});return res.status(404).json({error:targetGameId?"Reported game not found.":"Reported player not found."})}
   if(!reason||reason.length>120||details.length>3000){for(const f of req.files||[])fs.rmSync(f.path,{force:true});return res.status(400).json({error:"Add a reason and keep the report details under 3000 characters."})}
   const reports=readJson(files.reports,[]),evidence=(req.files||[]).map(f=>({id:crypto.randomUUID(),filename:f.filename,originalFilename:f.originalname,mimeType:f.mimetype,size:f.size}));
-  const row={id:crypto.randomUUID(),reporterId:req.user.id,targetUserId:target.id,reason,details,evidence,status:"open",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-  reports.push(row);writeJson(files.reports,reports);notifyStaff("report","New player report","A new report was submitted against "+target.name+".",{reportId:row.id,targetUserId:target.id,reporterUserId:req.user.id});res.json({reportId:row.id});
+  const row={id:crypto.randomUUID(),reporterId:req.user.id,targetUserId:target?.id||null,targetGameId:targetGame?.id||null,targetGameTitle:targetGame?.title||null,reason,details,evidence,status:"open",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  reports.push(row);writeJson(files.reports,reports);const subject=targetGame?"game "+targetGame.title:"player "+target.name;notifyStaff("report","New report","A new report was submitted against "+subject+".",{reportId:row.id,targetUserId:target?.id||null,targetGameId:targetGame?.id||null,reporterUserId:req.user.id});res.json({reportId:row.id});
 });
 app.get("/api/communities",auth,(req,res)=>{
   const q=String(req.query.q||"").trim().toLowerCase(),communities=readJson(files.communities,[]),invites=readJson(files.communityInvites,[]);
@@ -316,7 +316,7 @@ app.post("/api/admin/users/:id/role",auth,owner,(req,res)=>{
   if(previous!==nextRole)makeNotification(target.id,"role","Your Extra Games role changed","Your role changed from "+previous+" to "+nextRole+".",{role:nextRole});
   res.json({ok:true,role:nextRole});
 });
-app.get("/api/admin/reports",auth,staff,(req,res)=>{const users=readJson(files.users,[]);const reports=readJson(files.reports,[]).map(r=>({...r,reporterName:users.find(u=>u.id===r.reporterId)?.name||"Unknown",targetName:users.find(u=>u.id===r.targetUserId)?.name||"Unknown"}));res.json({reports})});
+app.get("/api/admin/reports",auth,staff,(req,res)=>{const users=readJson(files.users,[]);const reports=readJson(files.reports,[]).map(r=>({...r,reporterName:users.find(u=>u.id===r.reporterId)?.name||"Unknown",targetName:r.targetGameTitle?"[GAME] "+r.targetGameTitle:(users.find(u=>u.id===r.targetUserId)?.name||"Unknown"),targetType:r.targetGameId?"game":"player"}));res.json({reports})});
 app.post("/api/admin/reports/:id/close",auth,staff,(req,res)=>{const reports=readJson(files.reports,[]),report=reports.find(r=>r.id===req.params.id);if(!report)return res.status(404).json({error:"Report not found."});report.status="closed";report.updatedAt=new Date().toISOString();writeJson(files.reports,reports);res.json({ok:true})});
 app.get("/api/reports/evidence/:filename",auth,staff,(req,res)=>{const reports=readJson(files.reports,[]),report=reports.find(r=>r.evidence.some(e=>e.filename===req.params.filename));if(!report)return res.status(404).json({error:"Evidence not found."});const safe=path.basename(req.params.filename),filePath=path.resolve(evidenceDir,safe),root=path.resolve(evidenceDir);if(!filePath.startsWith(root+path.sep)||!fs.existsSync(filePath))return res.status(404).json({error:"Evidence unavailable."});res.sendFile(filePath)});
 app.get("/api/admin/games",auth,staff,(req,res)=>res.json({games:readJson(files.games,[]).map(g=>publicGame(g))}));
