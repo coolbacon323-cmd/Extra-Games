@@ -9,7 +9,7 @@ const port=process.env.PORT===undefined?3000:Number(process.env.PORT);
 const ADMIN_EMAIL=String(process.env.ADMIN_EMAIL||"cool.bacon323@gmail.com").trim().toLowerCase();
 const VERSION="0.5.0";
 app.disable("x-powered-by");
-const dataDir=path.join(__dirname,"data"),uploadDir=path.join(dataDir,"uploads");
+const dataDir=path.resolve(process.env.EXTRA_GAMES_DATA_DIR||path.join(__dirname,"data")),uploadDir=path.join(dataDir,"uploads");
 fs.mkdirSync(uploadDir,{recursive:true});
 const files={users:path.join(dataDir,"users.json"),games:path.join(dataDir,"games.json"),sessions:path.join(dataDir,"sessions.json"),purchases:path.join(dataDir,"purchases.json")};
 function readJson(file,fallback){try{return JSON.parse(fs.readFileSync(file,"utf8"))}catch{return fallback}}
