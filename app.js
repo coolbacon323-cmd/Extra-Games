@@ -13,6 +13,49 @@ const readLocalUsers=()=>{try{return JSON.parse(localStorage.getItem(LOCAL_USERS
 const saveLocalUsers=users=>localStorage.setItem(LOCAL_USERS_KEY,JSON.stringify(users));
 const readLocalSession=()=>{try{return JSON.parse(localStorage.getItem(LOCAL_SESSION_KEY)||"null")}catch{return null}};
 const saveLocalSession=user=>{if(user)localStorage.setItem(LOCAL_SESSION_KEY,JSON.stringify(user));else localStorage.removeItem(LOCAL_SESSION_KEY)};
+const LOCAL_GAMES_DB="extra_games_web_store_v1";
+let localGamesDbPromise;
+function openLocalGamesDb(){
+  if(localGamesDbPromise)return localGamesDbPromise;
+  localGamesDbPromise=new Promise((resolve,reject)=>{
+    const req=indexedDB.open(LOCAL_GAMES_DB,1);
+    req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains("games"))db.createObjectStore("games",{keyPath:"id"})};
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error||new Error("Local game storage is unavailable."));
+  });
+  return localGamesDbPromise;
+}
+async function localGamesAll(){
+  const db=await openLocalGamesDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction("games","readonly"),req=tx.objectStore("games").getAll();
+    req.onsuccess=()=>resolve(req.result||[]);
+    req.onerror=()=>reject(req.error||new Error("Could not read local games."));
+  });
+}
+async function localGamePut(game){
+  const db=await openLocalGamesDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction("games","readwrite");
+    tx.objectStore("games").put(game);
+    tx.oncomplete=()=>resolve(game);
+    tx.onerror=()=>reject(tx.error||new Error("Could not save the game package on this device."));
+  });
+}
+async function localGameGet(id){
+  const db=await openLocalGamesDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction("games","readonly"),req=tx.objectStore("games").get(id);
+    req.onsuccess=()=>resolve(req.result||null);
+    req.onerror=()=>reject(req.error||new Error("Could not open the local game."));
+  });
+}
+function localGamePublic(g){
+  return {
+    id:g.id,title:g.title,description:g.description,price:Number(g.price||0),creatorName:g.creatorName||"LOCAL CREATOR",
+    status:"approved",createdAt:g.createdAt,owned:true,localOnly:true,localCreatorId:g.creatorId
+  };
+}
 async function localHash(value){const data=new TextEncoder().encode(value),digest=await crypto.subtle.digest("SHA-256",data);return[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("")}
 function localUserView(u){const email=String(u.email||"").toLowerCase();const role=u.role||(email===ADMIN_EMAIL?"owner":"user");return{id:u.id,name:u.name,email:u.email,isAdmin:!!u.isAdmin||role!=="user"||email===ADMIN_EMAIL,role,localOnly:true}}
 function show(view){views.forEach(v=>v.classList.toggle("active",v.id===view));nav.forEach(n=>n.classList.toggle("active",n.dataset.view===view));if(title)title.textContent=names[view]||"Extra Games";history.replaceState(null,"","#"+view);if(view==="store")loadStore();if(view==="library")loadLibrary();if(view==="wishlist")loadWishlist();if(view==="community")loadCommunity();if(view==="messages")loadConversations();if(view==="admin")loadAdmin(); }
@@ -60,10 +103,46 @@ function launcherAvailable(){return !!window.launcher}
 function launcherVersion(){try{return window.launcher.version()}catch{return"0.5.4"}}
 function updateLauncherUI(){const mode=byId("launcher-mode"),desc=byId("launcher-description");if(mode){mode.textContent=launcherAvailable()?"WINDOWS LAUNCHER":"WEB APP";mode.classList.toggle("desktop",launcherAvailable())}if(desc&&launcherAvailable())desc.textContent="Running inside Extra Games Launcher "+launcherVersion()+". This desktop app uses the same Extra Games interface."}
 function renderGames(){const box=byId("dynamic-games");if(!box)return;const list=currentGames.filter(g=>(String(g.title)+" "+String(g.description)+" "+String(g.creatorName)).toLowerCase().includes(searchText));byId("store-count").textContent=list.length+" game"+(list.length===1?"":"s");if(!list.length){box.innerHTML="<div class='empty compact'><strong>No games found</strong><p>Try a different search or clear the filter.</p></div>";return}const wished=new Set(readWishlist());box.innerHTML=list.map(g=>{const owned=!!g.owned;return "<article class='game-card'><div class='game-art'>"+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><span class='badge'>"+escapeHtml(g.creatorName||"CREATOR")+"</span><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p><div class='game-bottom'><strong>"+(g.price===0?"FREE":"€"+Number(g.price).toFixed(2))+"</strong><div><button class='icon-button wish-game' data-id='"+g.id+"' title='Wishlist'>"+(wished.has(g.id)?"♥":"♡")+"</button><button class='gold buy-game' data-id='"+g.id+"'>"+(owned?"Open Library":(g.price===0?"Get Free":"Buy Game"))+"</button></div></div></div></article>"}).join("");box.querySelectorAll(".wish-game").forEach(b=>b.onclick=()=>toggleWishlist(b.dataset.id));box.querySelectorAll(".buy-game").forEach(b=>b.onclick=()=>{const g=currentGames.find(x=>x.id===b.dataset.id);if(g?.owned)show("library");else startCheckout(b.dataset.id)})}
-async function loadStore(){const box=byId("dynamic-games");if(!box)return;box.innerHTML="<div class='empty compact'><strong>Loading games…</strong></div>";try{const d=await api("/api/games");currentGames=d.games||[];renderGames()}catch(e){box.innerHTML="<div class='empty compact'><strong>Store unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}}
+async function loadStore(){
+  const box=byId("dynamic-games");if(!box)return;
+  box.innerHTML="<div class='empty compact'><strong>Loading games…</strong></div>";
+  let serverGames=[];
+  try{const d=await api("/api/games");serverGames=d.games||[]}catch{}
+  try{
+    const local=await localGamesAll();
+    const serverIds=new Set(serverGames.map(g=>g.id));
+    const localPublic=local.filter(g=>!serverIds.has(g.id)).map(localGamePublic);
+    currentGames=[...serverGames,...localPublic];
+    renderGames();
+    if(!serverGames.length&&localPublic.length){
+      box.insertAdjacentHTML("afterbegin","<div class='offline-note'><strong>Local web mode</strong><span>These games are stored securely in this browser. Connect a real website backend to publish them to other users.</span></div>");
+    }else if(!serverGames.length&&!localPublic.length){
+      box.innerHTML="<div class='empty compact'><strong>No games found</strong><p>Upload a game or connect the website backend to load the public store.</p></div>";
+    }
+  }catch(e){
+    box.innerHTML="<div class='empty compact'><strong>Store unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>";
+  }
+}
 function toggleWishlist(id){const list=readWishlist(),next=list.includes(id)?list.filter(x=>x!==id):[...list,id];saveWishlist(next);renderGames();if(document.querySelector("#wishlist.active"))loadWishlist()}
 async function loadWishlist(){const box=byId("wishlist-games");if(!box)return;const ids=new Set(readWishlist());if(!ids.size){box.innerHTML="<div class='empty'><strong>Your wishlist is empty</strong><p>Use ♡ on a store game to add it here.</p><button class='gold' data-view='store'>Browse Store</button></div>";return}try{if(!currentGames.length){const d=await api("/api/games");currentGames=d.games||[]}const list=currentGames.filter(g=>ids.has(g.id));if(!list.length){box.innerHTML="<div class='empty'><strong>No current store matches</strong><p>The saved games may have been removed from the store.</p></div>";return}box.innerHTML=list.map(g=>"<article class='game-card'><div class='game-art'>"+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><span class='badge'>WISHLIST</span><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p><div class='game-bottom'><strong>"+(g.price===0?"FREE":"€"+Number(g.price).toFixed(2))+"</strong><div><button class='outline remove-wish' data-id='"+g.id+"'>Remove</button><button class='gold buy-game' data-id='"+g.id+"'>"+(g.owned?"Open Library":(g.price===0?"Get Free":"Buy Game"))+"</button></div></div></div></article>").join("");box.querySelectorAll(".remove-wish").forEach(b=>b.onclick=()=>toggleWishlist(b.dataset.id));box.querySelectorAll(".buy-game").forEach(b=>b.onclick=()=>{const g=currentGames.find(x=>x.id===b.dataset.id);if(g?.owned)show("library");else startCheckout(b.dataset.id)})}catch(e){box.innerHTML="<div class='empty'><strong>Wishlist unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}}
-async function loadLibrary(){const box=byId("library-games");if(!box)return;box.innerHTML="<div class='empty compact'><strong>Loading library…</strong></div>";try{const d=await api("/api/library");const games=d.games||[];box.innerHTML=games.length?games.map(g=>"<article class='game-card'><div class='game-art'>"+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><span class='badge'>LIBRARY</span><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p><div class='game-bottom'><strong>READY</strong><button class='gold download-game' data-id='"+g.id+"'>Download</button></div></div></article>").join(""):"<div class='empty'><strong>Your library is empty</strong><p>Purchase or get a free game from the Store to see it here.</p><button class='gold' data-view='store'>Find Games</button></div>";box.querySelectorAll(".download-game").forEach(b=>b.onclick=()=>{location.href="/api/games/"+encodeURIComponent(b.dataset.id)+"/download"})}catch(e){box.innerHTML="<div class='empty'><strong>Log in to view your library</strong><p>"+escapeHtml(e.message)+"</p><button class='outline' data-view='account'>Open Account</button></div>"}}
+async function loadLibrary(){
+  const box=byId("library-games");if(!box)return;
+  box.innerHTML="<div class='empty compact'><strong>Loading library…</strong></div>";
+  try{
+    const d=await api("/api/library");
+    const games=d.games||[];
+    box.innerHTML=games.length?games.map(g=>"<article class='game-card'><div class='game-art'>"+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><span class='badge'>LIBRARY</span><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p><div class='game-bottom'><strong>READY</strong><button class='gold download-game' data-id='"+g.id+"'>Download</button></div></div></article>").join(""):"<div class='empty'><strong>Your library is empty</strong><p>Purchase or get a free game from the Store to see it here.</p><button class='gold' data-view='store'>Find Games</button></div>";
+    box.querySelectorAll(".download-game").forEach(b=>b.onclick=()=>{location.href="/api/games/"+encodeURIComponent(b.dataset.id)+"/download"});
+  }catch{
+    const session=readLocalSession();
+    if(!session){box.innerHTML="<div class='empty'><strong>Log in to view your library</strong><p>Sign in to access locally stored games.</p><button class='outline' data-view='account'>Open Account</button></div>";return}
+    try{
+      const local=(await localGamesAll()).filter(g=>g.creatorId===session.id).map(localGamePublic);
+      box.innerHTML=local.length?local.map(g=>"<article class='game-card'><div class='game-art'>"+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><span class='badge'>LOCAL LIBRARY</span><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p><div class='game-bottom'><strong>READY</strong><button class='gold local-download' data-id='"+escapeHtml(g.id)+"'>Download</button></div></div></article>").join(""):"<div class='empty'><strong>Your local library is empty</strong><p>Upload a ZIP or EXE to save a game on this device.</p><button class='gold' data-view='upload'>Upload Game</button></div>";
+      box.querySelectorAll(".local-download").forEach(b=>b.onclick=async()=>{try{const g=await localGameGet(b.dataset.id);if(!g?.file){throw new Error("Game package not found.")}const url=URL.createObjectURL(g.file);const a=document.createElement("a");a.href=url;a.download=g.filename||g.title;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)}catch(e){alert(e.message)}});
+    }catch(e){box.innerHTML="<div class='empty'><strong>Library unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+  }
+}
 async function refreshAccount(){try{
   const d=await api("/api/auth/me"),panel=byId("account-panel"),msg=byId("account-message"),label=byId("profile-label"),adminNav=document.querySelector(".admin-nav");
   if(!panel||!msg)return;
@@ -87,9 +166,42 @@ async function refreshAccount(){try{
 }catch{document.querySelector(".admin-nav")?.setAttribute("hidden","hidden")}}
 byId("login-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("login-status");s.textContent="Signing in…";try{const d=await api("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formData(e.target))});s.textContent=d.local?"Logged in with this browser account.":"Logged in.";await refreshAccount();show("home")}catch(err){s.textContent=err.message}});
 byId("signup-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("signup-status");s.textContent="Creating account…";try{const d=await api("/api/auth/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formData(e.target))});s.textContent=d.local?"Account created on this device. Connect the website backend later to sync it across devices.":"Account created and signed in.";await refreshAccount();show("home")}catch(err){s.textContent=err.message}});
-byId("upload-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("upload-status");s.textContent="Uploading…";try{const d=await api("/api/games/upload",{method:"POST",body:new FormData(e.target)});s.textContent="Uploaded "+d.game.title+". It is pending admin approval.";e.target.reset()}catch(err){s.textContent=err.message}});
+byId("upload-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const s=byId("upload-status");s.textContent="Uploading…";
+  const data=new FormData(e.target),file=data.get("game");
+  try{
+    const d=await api("/api/games/upload",{method:"POST",body:data});
+    s.textContent="Uploaded "+d.game.title+". It is pending admin approval.";
+    e.target.reset();
+    return;
+  }catch{}
+  const session=readLocalSession();
+  if(!session){s.textContent="Log in first. When the website backend is offline, uploads are saved securely to this browser.";show("account");return}
+  if(!(file instanceof File)||!file.size){s.textContent="Choose a ZIP or EXE game package.";return}
+  try{
+    const titleValue=String(data.get("title")||"").trim(),description=String(data.get("description")||"").trim(),price=Number(data.get("price")||0);
+    if(!titleValue||!description){s.textContent="Enter a game name and description.";return}
+    await localGamePut({id:"local-"+crypto.randomUUID(),title:titleValue,description,price,creatorId:session.id,creatorName:session.name,filename:file.name,file,fileType:file.type,createdAt:new Date().toISOString()});
+    s.textContent="Saved "+titleValue+" locally. It survives browser and launcher updates, but is not published to other users until the real website backend is connected.";
+    e.target.reset();await loadStore();await loadLibrary();
+  }catch(err){
+    s.textContent=err?.name==="QuotaExceededError"?"The browser does not have enough local storage space for this game package.":"Could not save this game locally: "+err.message;
+  }
+});
 async function loadAdmin(){show("account");const panel=byId("account-panel");try{const d=await api("/api/admin/games");panel.innerHTML="<h3>Admin review</h3>"+d.games.map(g=>"<div class='admin-row'><strong>"+escapeHtml(g.title)+"</strong> <span>"+escapeHtml(g.status)+"</span><button class='gold' data-a='approve' data-id='"+g.id+"'>Approve</button><button class='outline' data-a='reject' data-id='"+g.id+"'>Reject</button></div>").join("");panel.hidden=false;panel.querySelectorAll("[data-a]").forEach(b=>b.onclick=async()=>{await api("/api/admin/games/"+b.dataset.id+"/"+b.dataset.a,{method:"POST"});loadAdmin()})}catch(e){panel.innerHTML="<p>"+escapeHtml(e.message)+"</p>"}}
-async function startCheckout(gameId){try{const me=await api("/api/auth/me");if(!me.user){show("account");throw new Error("Log in or create an account before purchasing.")}if(me.local)throw new Error("This site is using a local browser account because its backend is not connected. Payments require the real website backend.");const d=await api("/api/create-checkout-session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({gameId})});if(d.free){await loadLibrary();show("library");return}window.location.href=d.url}catch(e){alert(e.message)}}
+async function startCheckout(gameId){
+  try{
+    const game=currentGames.find(g=>g.id===gameId);
+    if(game?.localOnly&&game?.owned){show("library");return}
+    const me=await api("/api/auth/me");
+    if(!me.user){show("account");throw new Error("Log in or create an account before purchasing.")}
+    if(me.local)throw new Error("The website is in local mode. Your uploaded games are saved on this device; paid purchases need the connected website backend.");
+    const d=await api("/api/create-checkout-session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({gameId})});
+    if(d.free){await loadLibrary();show("library");return}
+    window.location.href=d.url
+  }catch(e){alert(e.message)}
+}
 const globalSearch=byId("global-search");globalSearch?.addEventListener("input",e=>{searchText=e.target.value.trim().toLowerCase();if(document.querySelector("#store.active")){renderGames()}else{show("store");renderGames()}});
 byId("clear-search")?.addEventListener("click",()=>{searchText="";if(globalSearch)globalSearch.value="";renderGames()});
 byId("check-updates")?.addEventListener("click",async()=>{const s=byId("update-status");if(!launcherAvailable()){s.textContent="Open the Windows launcher to update it.";return}s.textContent="Checking…";try{const result=await window.launcher.checkForUpdates();s.textContent=result?.updateInfo?"Update found.":"You're up to date."}catch{s.textContent="Update check unavailable."}});
