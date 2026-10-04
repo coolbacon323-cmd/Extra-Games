@@ -7,7 +7,7 @@ const Stripe=require("stripe");
 const app=express();
 const port=Number(process.env.PORT)||3000;
 const ADMIN_EMAIL=String(process.env.ADMIN_EMAIL||"cool.bacon323@gmail.com").trim().toLowerCase();
-const VERSION="0.4.0";
+const VERSION="0.5.0";
 app.disable("x-powered-by");
 const dataDir=path.join(__dirname,"data"),uploadDir=path.join(dataDir,"uploads");
 fs.mkdirSync(uploadDir,{recursive:true});
@@ -46,4 +46,4 @@ app.post("/api/create-checkout-session",auth,async(req,res)=>{try{const game=rea
 app.get("/api/purchases/confirm",auth,async(req,res)=>{try{const sessionId=String(req.query.session_id||"");if(!sessionId)return res.status(400).json({error:"Missing session_id."});const session=await stripeClient().checkout.sessions.retrieve(sessionId);if(session.metadata?.userId!==req.user.id||session.payment_status!=="paid")return res.status(403).json({error:"Payment is not confirmed for this account."});const purchase=grantPurchase({userId:req.user.id,gameId:session.metadata.gameId,stripeSessionId:session.id,paymentIntentId:typeof session.payment_intent==="string"?session.payment_intent:null});res.json({ok:true,purchase})}catch(error){res.status(400).json({error:error.message||"Could not confirm payment."})}});
 app.get("/api/games/:id/download",auth,(req,res)=>{const game=readJson(files.games,[]).find(g=>g.id===req.params.id&&g.status==="approved");if(!game)return res.status(404).json({error:"Game not found."});if(!purchaseExists(req.user.id,game.id))return res.status(403).json({error:"Purchase this game before downloading it."});const root=path.resolve(uploadDir),filePath=path.resolve(uploadDir,game.filename);if(!filePath.startsWith(root+path.sep)||!fs.existsSync(filePath))return res.status(404).json({error:"Game package is unavailable."});res.download(filePath,game.originalFilename||path.basename(filePath))});
 app.use((err,req,res,next)=>{console.error(err);if(res.headersSent)return next(err);res.status(400).json({error:err.message||"Request failed."})});
-app.listen(port,()=>console.log("Extra Games "+VERSION+" listening on port "+port));
+const server=app.listen(port,()=>console.log("Extra Games "+VERSION+" listening on port "+server.address().port));\nmodule.exports={app,server};
