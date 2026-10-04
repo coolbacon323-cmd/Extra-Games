@@ -7,7 +7,7 @@ const Stripe=require("stripe");
 const app=express();
 const port=process.env.PORT===undefined?3000:Number(process.env.PORT);
 const ADMIN_EMAIL=String(process.env.ADMIN_EMAIL||"cool.bacon323@gmail.com").trim().toLowerCase();
-const VERSION="0.5.0";
+const VERSION="0.5.1";
 app.disable("x-powered-by");
 const dataDir=path.resolve(process.env.EXTRA_GAMES_DATA_DIR||path.join(__dirname,"data")),uploadDir=path.join(dataDir,"uploads");
 fs.mkdirSync(uploadDir,{recursive:true});
