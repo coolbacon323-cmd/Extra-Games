@@ -184,32 +184,34 @@ byId("login-form")?.addEventListener("submit",async e=>{e.preventDefault();const
 byId("signup-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("signup-status");s.textContent="Creating account…";try{const d=await api("/api/auth/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formData(e.target))});s.textContent=d.local?"Account created on this device. Connect the website backend later to sync it across devices.":"Account created and signed in.";await refreshAccount();show("home")}catch(err){s.textContent=err.message}});
 byId("upload-form")?.addEventListener("submit",async e=>{
   e.preventDefault();
-  const s=byId("upload-status");s.textContent="Uploading…";
+  const s=byId("upload-status");
+  s.textContent="Uploading to Extra Games…";
   const data=new FormData(e.target),file=data.get("game");
   const gameType=String(data.get("gameType")||"desktop");
   const vrRuntime=String(data.get("vrRuntime")||"").trim();
   const vrDevice=String(data.get("vrDevice")||"").trim();
   const vrHeadsets=data.getAll("vrHeadsets").map(v=>String(v).trim()).filter(Boolean);
   const ext=file instanceof File?file.name.toLowerCase().split(".").pop():"";
+
+  if(!(file instanceof File)||!file.size){s.textContent="Choose a ZIP, EXE or APK game package.";return}
   if((gameType==="vr"||gameType==="both")&&!vrRuntime){s.textContent="Enter the VR runtime/technology for this game.";return}
   if(ext==="apk"&&gameType==="desktop"){s.textContent="APK packages must be marked as VR or Desktop + VR.";return}
   if(ext==="apk"&&!vrDevice){s.textContent="Select the VR device target for this APK.";return}
+
   try{
     const d=await api("/api/games/upload",{method:"POST",body:data});
+    if(!d?.game)throw new Error("The server did not confirm the upload.");
     s.textContent="Uploaded "+d.game.title+". It is pending admin approval.";
-    e.target.reset();setVrUploadFields();return;
-  }catch{}
-  const session=readLocalSession();
-  if(!session){s.textContent="Log in first. When the website backend is offline, uploads are saved securely to this browser.";show("account");return}
-  if(!(file instanceof File)||!file.size){s.textContent="Choose a ZIP, EXE or APK game package.";return}
-  try{
-    const titleValue=String(data.get("title")||"").trim(),description=String(data.get("description")||"").trim(),price=Number(data.get("price")||0);
-    if(!titleValue||!description){s.textContent="Enter a game name and description.";return}
-    await localGamePut({id:"local-"+crypto.randomUUID(),title:titleValue,description,price,gameType,vrRuntime,vrDevice,vrHeadsets,packageType:ext,creatorId:session.id,creatorName:session.name,filename:file.name,file,fileType:file.type,createdAt:new Date().toISOString()});
-    s.textContent="Saved "+titleValue+" locally. It survives browser and launcher updates, but is not published to other users until the real website backend is connected.";
-    e.target.reset();setVrUploadFields();await loadStore();await loadLibrary();
+    e.target.reset();
+    setVrUploadFields();
+    await loadStore();
+    await loadLibrary();
+    return;
   }catch(err){
-    s.textContent=err?.name==="QuotaExceededError"?"The browser does not have enough local storage space for this game package.":"Could not save this game locally: "+err.message;
+    const message=err?.message||"Upload failed.";
+    s.textContent=message.includes("backend is unavailable")
+      ?"Upload failed: the Extra Games website backend is unavailable. Nothing was saved locally. Please start/connect the website backend and try again."
+      :"Upload failed: "+message;
   }
 });
 async function loadAdmin(){show("account");const panel=byId("account-panel");try{const d=await api("/api/admin/games");panel.innerHTML="<h3>Admin review</h3>"+d.games.map(g=>"<div class='admin-row'><strong>"+escapeHtml(g.title)+"</strong> <span>"+escapeHtml(g.status)+"</span><button class='gold' data-a='approve' data-id='"+g.id+"'>Approve</button><button class='outline' data-a='reject' data-id='"+g.id+"'>Reject</button></div>").join("");panel.hidden=false;panel.querySelectorAll("[data-a]").forEach(b=>b.onclick=async()=>{await api("/api/admin/games/"+b.dataset.id+"/"+b.dataset.a,{method:"POST"});loadAdmin()})}catch(e){panel.innerHTML="<p>"+escapeHtml(e.message)+"</p>"}}
