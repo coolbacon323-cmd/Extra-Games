@@ -62,7 +62,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p quest
-          cp quest-app/app/build/outputs/apk/release/app-release.apk quest/Extra-Games-Quest.apk
+          echo "Built APK files:"
+          find quest-app/app/build/outputs -type f -name "*.apk" -print
+          APK="$(find quest-app/app/build/outputs -type f -name "*.apk" | head -n 1)"
+          test -n "$APK"
+          cp "$APK" quest/Extra-Games-Quest.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
