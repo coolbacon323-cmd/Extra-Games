@@ -227,15 +227,15 @@
     </section>
 
     <section id="upload" class="view">
-      <div class="page-banner"><span class="eyebrow">CREATOR CENTER</span><h2>Upload a Game</h2><p>Publish a Windows game package. ZIP and EXE uploads are supported.</p></div>
+      <div class="page-banner"><span class="eyebrow">CREATOR CENTER</span><h2>Upload a Game</h2><p>Publish a desktop or VR game package. ZIP, EXE and Quest APK uploads are supported.</p></div>
       <div class="form-card">
         <form id="upload-form">
           <label>Game name<input name="title" required maxlength="80" placeholder="My Awesome Game"></label>
           <label>Description<textarea name="description" required maxlength="1000" placeholder="Tell players what your game is about."></textarea></label>
           <label>Price in EUR<input name="price" type="number" min="0" step="0.01" value="0"></label>
           <label>Game type<select name="gameType" id="upload-game-type"><option value="desktop">Desktop game</option><option value="vr">VR game</option><option value="both">Desktop + VR</option></select></label>
-          <div id="vr-upload-fields" class="vr-upload-fields" hidden><label>VR runtime / technology<input name="vrRuntime" maxlength="200" placeholder="OpenXR, SteamVR, OpenXR + SteamVR"></label><label>Supported headsets<input name="vrHeadsets" maxlength="300" placeholder="Quest Link, Valve Index, HTC Vive, etc."></label></div>
-          <label>Game package<input name="game" type="file" accept=".zip,.exe" required></label>
+          <div id="vr-upload-fields" class="vr-upload-fields" hidden><label>VR runtime / technology<input name="vrRuntime" maxlength="200" placeholder="OpenXR, SteamVR, OpenXR + SteamVR"></label><label>VR device target<select name="vrDevice" id="vr-device-target"><option value="">Select target</option><option value="meta-quest-3">Meta Quest 3</option><option value="meta-quest-3s">Meta Quest 3S</option><option value="meta-quest-3-and-3s">Meta Quest 3 + 3S</option><option value="other-openxr">Other OpenXR headset</option></select></label><fieldset class="vr-headset-fieldset"><legend>Compatible headsets</legend><label><input type="checkbox" name="vrHeadsets" value="Meta Quest 3"> Meta Quest 3</label><label><input type="checkbox" name="vrHeadsets" value="Meta Quest 3S"> Meta Quest 3S</label><label><input type="checkbox" name="vrHeadsets" value="Other OpenXR headsets"> Other OpenXR headsets</label></fieldset></div>
+          <label>Game package<input name="game" type="file" accept=".zip,.exe,.apk" required></label>
           <button class="gold" type="submit">Upload Game</button>
           <p id="upload-status" class="form-status"></p>
         </form>
