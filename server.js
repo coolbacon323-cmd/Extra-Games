@@ -252,6 +252,14 @@ app.delete("/api/communities/:id/members/:userId",auth,(req,res)=>{
   if(c.members.length===before)return res.status(404).json({error:"Member not found."});
   writeJson(files.communities,communities);res.json({ok:true});
 });
+app.get("/api/communities/:id/members",auth,(req,res)=>{
+  const communities=readJson(files.communities,[]),c=communities.find(x=>x.id===req.params.id);
+  if(!c)return res.status(404).json({error:"Community not found."});
+  if(!c.members.some(m=>m.userId===req.user.id))return res.status(403).json({error:"You must be a community member."});
+  const users=readJson(files.users,[]);
+  const members=c.members.map(m=>({id:m.userId,name:users.find(u=>u.id===m.userId)?.name||"Unknown",role:m.role,joinedAt:m.joinedAt})).filter(m=>m.id);
+  res.json({community:{id:c.id,name:c.name,description:c.description,visibility:c.visibility,ownerId:c.ownerId,memberCount:members.length},members});
+});
 app.get("/api/communities/invites",auth,(req,res)=>{
   const invites=readJson(files.communityInvites,[]).filter(i=>i.userId===req.user.id&&i.status==="pending");
   const communities=readJson(files.communities,[]);
