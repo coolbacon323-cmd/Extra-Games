@@ -47,4 +47,5 @@ app.get("/api/purchases/confirm",auth,async(req,res)=>{try{const sessionId=Strin
 app.get("/api/games/:id/download",auth,(req,res)=>{const game=readJson(files.games,[]).find(g=>g.id===req.params.id&&g.status==="approved");if(!game)return res.status(404).json({error:"Game not found."});if(!purchaseExists(req.user.id,game.id))return res.status(403).json({error:"Purchase this game before downloading it."});const root=path.resolve(uploadDir),filePath=path.resolve(uploadDir,game.filename);if(!filePath.startsWith(root+path.sep)||!fs.existsSync(filePath))return res.status(404).json({error:"Game package is unavailable."});res.download(filePath,game.originalFilename||path.basename(filePath))});
 app.use((err,req,res,next)=>{console.error(err);if(res.headersSent)return next(err);res.status(400).json({error:err.message||"Request failed."})});
 const server=app.listen(port,()=>console.log("Extra Games "+VERSION+" listening on port "+server.address().port));
-module.exports={app,server};
+const ready=new Promise((resolve,reject)=>{server.once("listening",resolve);server.once("error",reject)});
+module.exports={app,server,ready};
