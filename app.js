@@ -336,7 +336,7 @@ function personActionsForSearch(u){
   }else{
     friendButton="<button class='gold add-friend' data-id='"+escapeHtml(u.id)+"'>Add Friend</button>";
   }
-  return friendButton+"<button class='outline message-user' data-id='"+escapeHtml(u.id)+"'>Message</button><button class='outline block-user' data-id='"+escapeHtml(u.id)+"'>Block</button><button class='danger-button report-user' data-id='"+escapeHtml(u.id)+"' data-name='"+escapeHtml(u.name)+"'>Report</button>";
+  return "<button class=\'outline view-profile\' data-id=\'"+escapeHtml(u.id)+"\'>View Profile</button>"+friendButton+"<button class='outline message-user' data-id='"+escapeHtml(u.id)+"'>Message</button><button class='outline block-user' data-id='"+escapeHtml(u.id)+"'>Block</button><button class='danger-button report-user' data-id='"+escapeHtml(u.id)+"' data-name='"+escapeHtml(u.name)+"'>Report</button>";
 }
 async function searchPeople(){
   const q=byId("people-search")?.value.trim()||"",box=byId("people-results");if(!box)return;
@@ -350,6 +350,19 @@ async function searchPeople(){
   }catch(e){box.innerHTML="<div class='empty compact'><strong>Player search unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
 }
 function bindPersonActions(box){
+  box.querySelectorAll(".view-profile").forEach(b=>b.onclick=async()=>{
+    const card=b.closest(".person-card");
+    if(!card)return;
+    b.disabled=true;
+    try{
+      const d=await api("/api/users/"+encodeURIComponent(b.dataset.id));
+      const u=d.user;
+      const joined=u.createdAt?new Date(u.createdAt).toLocaleDateString():"Unknown";
+      card.querySelector(".person-main").insertAdjacentHTML("beforeend","<p class='profile-details'>Role: "+escapeHtml(u.role||"user")+" · Joined: "+escapeHtml(joined)+"</p>");
+      b.remove();
+    }catch(e){b.disabled=false;alert(e.message)}
+  });
+
   box.querySelectorAll(".add-friend").forEach(b=>b.onclick=async()=>{
     b.disabled=true;try{await api("/api/friends/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:b.dataset.id})});searchPeople();loadFriends()}catch(e){b.disabled=false;alert(e.message)}
   });
