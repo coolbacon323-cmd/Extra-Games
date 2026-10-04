@@ -41,7 +41,7 @@ You must be signed in.
 6. Supported package formats are **.ZIP** and **.EXE**.
 7. Click **Upload Game**.
 
-Uploaded games are stored with a **pending** approval status. The store only exposes approved games.
+Uploaded games are stored with a **pending** approval status. Staff review the upload, and the public Store only exposes approved games.
 
 ## Stripe
 
@@ -81,9 +81,7 @@ npm install
 npm run dist
 ```
 
-The installer is generated in the `release` directory as:
-
-`Extra-Games-Launcher-Setup-0.5.1.exe`
+The installer is generated in the `release` directory as `Extra-Games-Launcher-Setup-<version>.exe`. GitHub Actions also publishes a rolling latest launcher release.
 
 ## Packaging details
 
