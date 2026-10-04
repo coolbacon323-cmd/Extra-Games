@@ -17,6 +17,8 @@
       <button class="nav" data-view="library">▣ <span>Library</span></button>
       <button class="nav" data-view="wishlist">♡ <span>Wishlist</span></button>
       <button class="nav" data-view="community">◎ <span>Community</span></button>
+      <button class="nav" data-view="messages">✉ <span>Messages</span></button>
+      <button class="nav" data-view="rules">§ <span>Rules</span></button>
       <button class="nav" data-view="news">▤ <span>News</span></button>
       <button class="nav" data-view="upload">⬆ <span>Upload Game</span></button>
       <button class="nav" data-view="account">● <span>Account</span></button>
@@ -94,11 +96,85 @@
     </section>
 
     <section id="community" class="view">
-      <div class="page-banner"><span class="eyebrow">SOCIAL</span><h2>Community</h2><p>Connect with players, creators and groups around Extra Games.</p></div>
-      <div class="community-grid">
-        <div class="community-card"><span>◎</span><h3>Friends</h3><p>Find players by display name and manage connections.</p></div>
-        <div class="community-card"><span>✉</span><h3>Messages</h3><p>Keep conversations with accepted friends in one place.</p></div>
-        <div class="community-card"><span>◆</span><h3>Groups</h3><p>Join communities built around games and interests.</p></div>
+      <div class="page-banner"><span class="eyebrow">SOCIAL</span><h2>Community</h2><p>Find players, manage friends, block users, report rule-breaking and build communities.</p></div>
+
+      <div class="social-tabs">
+        <button class="social-tab active" data-social-tab="people">People</button>
+        <button class="social-tab" data-social-tab="friends">Friends</button>
+        <button class="social-tab" data-social-tab="communities">Communities</button>
+        <button class="social-tab" data-social-tab="invites">Invites</button>
+      </div>
+
+      <div id="social-people" class="social-panel active">
+        <div class="social-toolbar">
+          <input id="people-search" class="social-input" placeholder="Search display names..." maxlength="32">
+          <button class="gold" id="people-search-button">Search</button>
+        </div>
+        <div id="people-results" class="social-results"><div class="empty compact"><strong>Search for a player</strong><p>Enter at least 2 characters of their display name.</p></div></div>
+      </div>
+
+      <div id="social-friends" class="social-panel">
+        <div id="friend-requests" class="social-results"></div>
+        <div class="section-head"><div><span class="eyebrow">YOUR FRIENDS</span><h3>Friends</h3></div></div>
+        <div id="friends-list" class="social-results"><div class="empty compact"><strong>Loading friends…</strong></div></div>
+      </div>
+
+      <div id="social-communities" class="social-panel">
+        <div class="community-create-card">
+          <div><span class="badge">CREATE</span><h3>Create a community</h3><p>Choose public, private, or invite-only access.</p></div>
+          <form id="community-create-form" class="inline-form">
+            <input name="name" placeholder="Community name" maxlength="60" required>
+            <input name="description" placeholder="Description" maxlength="500">
+            <select name="visibility">
+              <option value="public">Public — anyone can join</option>
+              <option value="invite">Invite-only — visible, but joining requires an invite</option>
+              <option value="private">Private — hidden unless invited</option>
+            </select>
+            <button class="gold" type="submit">Create Community</button>
+          </form>
+          <p id="community-create-status" class="form-status"></p>
+        </div>
+        <div class="social-toolbar">
+          <input id="community-search" class="social-input" placeholder="Find communities by group name..." maxlength="60">
+          <button class="gold" id="community-search-button">Find</button>
+        </div>
+        <div id="community-results" class="social-results"><div class="empty compact"><strong>Find a community</strong><p>Search by group name.</p></div></div>
+      </div>
+
+      <div id="social-invites" class="social-panel">
+        <div class="section-head"><div><span class="eyebrow">INVITATIONS</span><h3>Community invites</h3></div></div>
+        <div id="community-invites" class="social-results"><div class="empty compact"><strong>Loading invites…</strong></div></div>
+      </div>
+
+      <div class="moderation-note"><strong>See something that breaks the rules?</strong><span>Open a player profile, choose Report, and attach screenshots, photos, or an MP4 video as evidence.</span></div>
+    </section>
+
+    <section id="messages" class="view">
+      <div class="page-banner"><span class="eyebrow">DIRECT MESSAGES</span><h2>Messages</h2><p>Message players who are not blocked. Use Community to find someone by display name.</p></div>
+      <div class="message-layout">
+        <aside id="conversation-list" class="conversation-list"><div class="empty compact"><strong>No conversations yet</strong><p>Search for a player in Community and choose Message.</p></div></aside>
+        <section class="message-card">
+          <div id="message-title" class="message-title">Select a conversation</div>
+          <div id="message-history" class="message-history"><div class="empty compact"><strong>No conversation selected</strong></div></div>
+          <form id="message-form" class="message-form">
+            <input type="hidden" name="toUserId" id="message-to-user">
+            <textarea name="body" id="message-body" maxlength="2000" placeholder="Write a message..." required></textarea>
+            <button class="gold" type="submit">Send</button>
+          </form>
+          <p id="message-status" class="form-status"></p>
+        </section>
+      </div>
+    </section>
+
+    <section id="rules" class="view">
+      <div class="page-banner"><span class="eyebrow">EXTRA GAMES COMMUNITY RULES</span><h2>Rules</h2><p>These rules apply to accounts, messages, communities, game uploads and reports.</p></div>
+      <div class="rules-grid">
+        <article class="rules-card"><span class="badge">01</span><h3>Be respectful</h3><p>No harassment, threats, targeted abuse, bullying or repeated unwanted contact.</p></article>
+        <article class="rules-card"><span class="badge">02</span><h3>No illegal or harmful content</h3><p>Do not upload or distribute illegal material, malware, scams or content intended to cause harm.</p></article>
+        <article class="rules-card"><span class="badge">03</span><h3>No spam or impersonation</h3><p>Do not flood messages, manipulate communities, scam users or impersonate another person or organization.</p></article>
+        <article class="rules-card"><span class="badge">04</span><h3>Respect privacy</h3><p>Do not publish private information about other people. Do not use Extra Games to organize harassment.</p></article>
+        <article class="rules-card"><span class="badge">05</span><h3>Report honestly</h3><p>Use reports for genuine rule violations. Do not submit false reports or fabricate evidence.</p></article>
+        <article class="rules-card"><span class="badge">06</span><h3>Moderation decisions</h3><p>Extra Games may remove content, restrict accounts, close communities or take other moderation action when rules are broken.</p></article>
       </div>
     </section>
 
