@@ -13,11 +13,25 @@ const dataDir=path.resolve(process.env.EXTRA_GAMES_DATA_DIR||path.join(__dirname
 fs.mkdirSync(uploadDir,{recursive:true});
 const evidenceDir=path.join(dataDir,"evidence");
 fs.mkdirSync(evidenceDir,{recursive:true});
-const files={users:path.join(dataDir,"users.json"),games:path.join(dataDir,"games.json"),sessions:path.join(dataDir,"sessions.json"),purchases:path.join(dataDir,"purchases.json"),friends:path.join(dataDir,"friends.json"),blocks:path.join(dataDir,"blocks.json"),messages:path.join(dataDir,"messages.json"),reports:path.join(dataDir,"reports.json"),communities:path.join(dataDir,"communities.json"),communityInvites:path.join(dataDir,"community-invites.json")};
+const files={users:path.join(dataDir,"users.json"),games:path.join(dataDir,"games.json"),sessions:path.join(dataDir,"sessions.json"),purchases:path.join(dataDir,"purchases.json"),friends:path.join(dataDir,"friends.json"),blocks:path.join(dataDir,"blocks.json"),messages:path.join(dataDir,"messages.json"),reports:path.join(dataDir,"reports.json"),communities:path.join(dataDir,"communities.json"),communityInvites:path.join(dataDir,"community-invites.json"),notifications:path.join(dataDir,"notifications.json")};
 function readJson(file,fallback){try{return JSON.parse(fs.readFileSync(file,"utf8"))}catch{return fallback}}
 function writeJson(file,value){const tmp=file+".tmp";fs.writeFileSync(tmp,JSON.stringify(value,null,2),"utf8");fs.renameSync(tmp,file)}
 for(const [file,value] of Object.entries(files))if(!fs.existsSync(file))writeJson(file,value);
-function cleanUser(u){return{id:u.id,name:u.name,email:u.email,isAdmin:u.email===ADMIN_EMAIL}}
+const startupUsers=readJson(files.users,[]);
+let startupChanged=false;
+for(const u of startupUsers){if(u.email?.toLowerCase()===ADMIN_EMAIL&&u.role!=="owner"){u.role="owner";startupChanged=true}if(!u.role){u.role="user";startupChanged=true}if(typeof u.banned!=="boolean"){u.banned=false;startupChanged=true}}
+if(startupChanged)writeJson(files.users,startupUsers);
+const ROLE_LEVEL={user:0,moderator:1,manager:2,admin:3,"co-owner":4,owner:5};
+const ASSIGNABLE_ROLES=["user","moderator","manager","admin","co-owner"];
+function roleOf(u){return u?.email?.toLowerCase()===ADMIN_EMAIL?"owner":(u?.role||"user")}
+function roleLevel(u){return ROLE_LEVEL[roleOf(u)]??0}
+function isStaff(u){return roleLevel(u)>=ROLE_LEVEL.moderator}
+function canModerate(u){return roleLevel(u)>=ROLE_LEVEL.manager}
+function canManageRoles(u){return roleOf(u)==="owner"}
+function cleanUser(u){return{id:u.id,name:u.name,email:u.email,isAdmin:isStaff(u),role:roleOf(u),banned:!!u.banned}}
+function makeNotification(userId,type,title,body,meta={}){const notifications=readJson(files.notifications,[]);notifications.push({id:crypto.randomUUID(),userId,type,title,body,meta,read:false,createdAt:new Date().toISOString()});writeJson(files.notifications,notifications)}
+function notifyStaff(type,title,body,meta={}){for(const u of readJson(files.users,[]))if(isStaff(u)&&!u.banned)makeNotification(u.id,type,title,body,meta)}
+
 function blockedPair(a,b){const blocks=readJson(files.blocks,[]);return blocks.some(x=>(x.blockerId===a&&x.blockedId===b)||(x.blockerId===b&&x.blockedId===a))}
 function friendship(a,b){return readJson(files.friends,[]).find(x=>(x.requesterId===a&&x.recipientId===b)||(x.requesterId===b&&x.recipientId===a))}
 function publicProfile(u,extra={}){return{id:u.id,name:u.name,isAdmin:u.email===ADMIN_EMAIL,...extra}}
@@ -27,8 +41,10 @@ function hashPassword(password){const salt=crypto.randomBytes(16).toString("hex"
 function verifyPassword(password,stored){try{const [salt,hash]=String(stored||"").split(":");if(!salt||!hash)return false;const test=crypto.scryptSync(password,salt,64).toString("hex");return hash.length===test.length&&crypto.timingSafeEqual(Buffer.from(hash,"hex"),Buffer.from(test,"hex"))}catch{return false}}
 function cookieToken(req){const m=String(req.headers.cookie||"").match(/(?:^|;\\s*)eg_session=([^;]+)/);return m?m[1]:null}
 function getUser(req){const token=req.headers.authorization?.startsWith("Bearer ")?req.headers.authorization.slice(7):cookieToken(req);if(!token)return null;const id=readJson(files.sessions,{})[token];return readJson(files.users,[]).find(u=>u.id===id)||null}
-function auth(req,res,next){const user=getUser(req);if(!user)return res.status(401).json({error:"You must be logged in."});req.user=user;next()}
-function admin(req,res,next){if(req.user?.email!==ADMIN_EMAIL)return res.status(403).json({error:"Admin access required."});next()}
+function auth(req,res,next){const user=getUser(req);if(!user)return res.status(401).json({error:"You must be logged in."});if(user.banned)return res.status(403).json({error:"Your account is banned."});req.user=user;next()}
+function staff(req,res,next){if(!isStaff(req.user))return res.status(403).json({error:"Staff access required."});next()}
+function manager(req,res,next){if(!canModerate(req.user))return res.status(403).json({error:"Manager-level access required."});next()}
+function owner(req,res,next){if(!canManageRoles(req.user))return res.status(403).json({error:"Owner access required."});next()}
 function tokenFor(user){const token=crypto.randomBytes(32).toString("hex");const sessions=readJson(files.sessions,{});sessions[token]=user.id;writeJson(files.sessions,sessions);return token}
 function setCookie(res,token){res.setHeader("Set-Cookie","eg_session="+token+"; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000")}
 function publicGame(g,owned=new Set()){return{id:g.id,title:g.title,description:g.description,price:g.price,creatorName:g.creatorName,status:g.status,createdAt:g.createdAt,owned:owned.has(g.id)}}
@@ -40,8 +56,8 @@ app.use(express.json({limit:"2mb"}));
 app.use(express.static(__dirname,{index:"index.html",dotfiles:"ignore"}));
 app.get("/api/health",(req,res)=>res.json({ok:true,service:"extra-games",version:VERSION}));
 app.get("/api/auth/me",(req,res)=>{const user=getUser(req);res.json({user:user?cleanUser(user):null})});
-app.post("/api/auth/signup",(req,res)=>{const name=String(req.body?.name||"").trim(),email=String(req.body?.email||"").trim().toLowerCase(),password=req.body?.password;if(!name||name.length>32||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||typeof password!=="string"||password.length<8)return res.status(400).json({error:"Use a valid name, email and password of at least 8 characters."});const users=readJson(files.users,[]);if(users.some(u=>u.email===email))return res.status(409).json({error:"An account with that email already exists."});const user={id:crypto.randomUUID(),name,email,password:hashPassword(password),createdAt:new Date().toISOString()};users.push(user);writeJson(files.users,users);setCookie(res,tokenFor(user));res.json({user:cleanUser(user)})});
-app.post("/api/auth/login",(req,res)=>{const email=String(req.body?.email||"").trim().toLowerCase(),user=readJson(files.users,[]).find(u=>u.email===email);if(!user||!verifyPassword(String(req.body?.password||""),user.password))return res.status(401).json({error:"Invalid email or password."});setCookie(res,tokenFor(user));res.json({user:cleanUser(user)})});
+app.post("/api/auth/signup",(req,res)=>{const name=String(req.body?.name||"").trim(),email=String(req.body?.email||"").trim().toLowerCase(),password=req.body?.password;if(!name||name.length>32||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||typeof password!=="string"||password.length<8)return res.status(400).json({error:"Use a valid name, email and password of at least 8 characters."});const users=readJson(files.users,[]);if(users.some(u=>u.email===email))return res.status(409).json({error:"An account with that email already exists."});const user={id:crypto.randomUUID(),name,email,password:hashPassword(password),role:email===ADMIN_EMAIL?"owner":"user",banned:false,createdAt:new Date().toISOString()};users.push(user);writeJson(files.users,users);setCookie(res,tokenFor(user));res.json({user:cleanUser(user)})});
+app.post("/api/auth/login",(req,res)=>{const email=String(req.body?.email||"").trim().toLowerCase(),user=readJson(files.users,[]).find(u=>u.email===email);if(!user||!verifyPassword(String(req.body?.password||""),user.password))return res.status(401).json({error:"Invalid email or password."});if(user.banned)return res.status(403).json({error:"This account is banned."});setCookie(res,tokenFor(user));res.json({user:cleanUser(user)})});
 app.post("/api/auth/logout",(req,res)=>{const token=req.headers.authorization?.startsWith("Bearer ")?req.headers.authorization.slice(7):cookieToken(req);if(token){const sessions=readJson(files.sessions,{});delete sessions[token];writeJson(files.sessions,sessions)}res.setHeader("Set-Cookie","eg_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");res.json({ok:true})});
 const upload=multer({storage:multer.diskStorage({destination:uploadDir,filename:(req,file,cb)=>cb(null,crypto.randomUUID()+path.extname(file.originalname).toLowerCase())}),limits:{fileSize:2*1024*1024*1024},fileFilter:(req,file,cb)=>{const ext=path.extname(file.originalname).toLowerCase();cb(ext===".zip"||ext===".exe"?null:new Error("Only .zip and .exe game packages are allowed."))}});
 
@@ -143,7 +159,7 @@ app.post("/api/reports",auth,evidenceUpload.array("evidence",5),(req,res)=>{
   if(!reason||reason.length>120||details.length>3000){for(const f of req.files||[])fs.rmSync(f.path,{force:true});return res.status(400).json({error:"Add a reason and keep the report details under 3000 characters."})}
   const reports=readJson(files.reports,[]),evidence=(req.files||[]).map(f=>({id:crypto.randomUUID(),filename:f.filename,originalFilename:f.originalname,mimeType:f.mimetype,size:f.size}));
   const row={id:crypto.randomUUID(),reporterId:req.user.id,targetUserId:target.id,reason,details,evidence,status:"open",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-  reports.push(row);writeJson(files.reports,reports);res.json({reportId:row.id});
+  reports.push(row);writeJson(files.reports,reports);notifyStaff("report","New player report","A new report was submitted against "+target.name+".",{reportId:row.id,targetUserId:target.id,reporterUserId:req.user.id});res.json({reportId:row.id});
 });
 app.get("/api/communities",auth,(req,res)=>{
   const q=String(req.query.q||"").trim().toLowerCase(),communities=readJson(files.communities,[]),invites=readJson(files.communityInvites,[]);
@@ -196,13 +212,57 @@ app.post("/api/communities/invites/:id/decline",auth,(req,res)=>{
   const invites=readJson(files.communityInvites,[]),i=invites.find(x=>x.id===req.params.id&&x.userId===req.user.id&&x.status==="pending");
   if(!i)return res.status(404).json({error:"Invite not found."});i.status="declined";i.updatedAt=new Date().toISOString();writeJson(files.communityInvites,invites);res.json({ok:true});
 });
-app.post("/api/games/upload",auth,upload.single("game"),(req,res)=>{if(!req.file)return res.status(400).json({error:"Choose a ZIP or EXE game package."});const title=String(req.body?.title||"").trim(),description=String(req.body?.description||"").trim(),price=Number(req.body?.price);if(!title||title.length>80||!description||description.length>2000||!Number.isFinite(price)||price<0||price>999.99){fs.rmSync(req.file.path,{force:true});return res.status(400).json({error:"Enter a valid title, description and price from €0 to €999.99."})}const game={id:crypto.randomUUID(),title,description,price:Math.round(price*100)/100,filename:req.file.filename,originalFilename:req.file.originalname,creatorId:req.user.id,creatorName:req.user.name,status:"pending",createdAt:new Date().toISOString()};const games=readJson(files.games,[]);games.push(game);writeJson(files.games,games);res.json({game:publicGame(game)})});
+app.post("/api/games/upload",auth,upload.single("game"),(req,res)=>{if(!req.file)return res.status(400).json({error:"Choose a ZIP or EXE game package."});const title=String(req.body?.title||"").trim(),description=String(req.body?.description||"").trim(),price=Number(req.body?.price);if(!title||title.length>80||!description||description.length>2000||!Number.isFinite(price)||price<0||price>999.99){fs.rmSync(req.file.path,{force:true});return res.status(400).json({error:"Enter a valid title, description and price from €0 to €999.99."})}const game={id:crypto.randomUUID(),title,description,price:Math.round(price*100)/100,filename:req.file.filename,originalFilename:req.file.originalname,creatorId:req.user.id,creatorName:req.user.name,status:"pending",createdAt:new Date().toISOString()};const games=readJson(files.games,[]);games.push(game);writeJson(files.games,games);notifyStaff("game","New game awaiting review",req.user.name+" uploaded "+game.title+" for moderation.",{gameId:game.id});res.json({game:publicGame(game)})});
 app.get("/api/games",(req,res)=>{const user=getUser(req),owned=new Set(user?readJson(files.purchases,[]).filter(p=>p.userId===user.id&&p.status==="paid").map(p=>p.gameId):[]);res.json({games:readJson(files.games,[]).filter(g=>g.status==="approved").map(g=>publicGame(g,owned))})});
 app.get("/api/library",auth,(req,res)=>{const owned=new Set(readJson(files.purchases,[]).filter(p=>p.userId===req.user.id&&p.status==="paid").map(p=>p.gameId));res.json({games:readJson(files.games,[]).filter(g=>owned.has(g.id)).map(g=>publicGame(g,owned))})});
-app.get("/api/admin/reports",auth,admin,(req,res)=>{const users=readJson(files.users,[]);const reports=readJson(files.reports,[]).map(r=>({...r,reporterName:users.find(u=>u.id===r.reporterId)?.name||"Unknown",targetName:users.find(u=>u.id===r.targetUserId)?.name||"Unknown"}));res.json({reports})});
-app.get("/api/reports/evidence/:filename",auth,(req,res)=>{const reports=readJson(files.reports,[]),report=reports.find(r=>r.evidence.some(e=>e.filename===req.params.filename));if(!report)return res.status(404).json({error:"Evidence not found."});if(report.reporterId!==req.user.id&&req.user.email!==ADMIN_EMAIL)return res.status(403).json({error:"Not allowed."});const safe=path.basename(req.params.filename),filePath=path.resolve(evidenceDir,safe),root=path.resolve(evidenceDir);if(!filePath.startsWith(root+path.sep)||!fs.existsSync(filePath))return res.status(404).json({error:"Evidence unavailable."});res.sendFile(filePath)});
-app.get("/api/admin/games",auth,admin,(req,res)=>res.json({games:readJson(files.games,[]).map(g=>publicGame(g))}));
-for(const action of ["approve","reject"])app.post("/api/admin/games/:id/"+action,auth,admin,(req,res)=>{const games=readJson(files.games,[]),game=games.find(g=>g.id===req.params.id);if(!game)return res.status(404).json({error:"Game not found."});game.status=action==="approve"?"approved":"rejected";writeJson(files.games,games);res.json({game:publicGame(game)})});
+app.get("/api/admin/notifications",auth,staff,(req,res)=>{
+  const rows=readJson(files.notifications,[]).filter(n=>n.userId===req.user.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,100);
+  res.json({notifications:rows,unread:rows.filter(n=>!n.read).length});
+});
+app.post("/api/admin/notifications/:id/read",auth,staff,(req,res)=>{
+  const rows=readJson(files.notifications,[]),n=rows.find(x=>x.id===req.params.id&&x.userId===req.user.id);
+  if(!n)return res.status(404).json({error:"Notification not found."});n.read=true;writeJson(files.notifications,rows);res.json({ok:true});
+});
+app.post("/api/admin/notifications/read-all",auth,staff,(req,res)=>{
+  const rows=readJson(files.notifications,[]);for(const n of rows)if(n.userId===req.user.id)n.read=true;writeJson(files.notifications,rows);res.json({ok:true});
+});
+app.get("/api/admin/users",auth,staff,(req,res)=>{
+  const q=String(req.query.q||"").trim().toLowerCase();
+  const users=readJson(files.users,[]).filter(u=>!q||u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)).slice(0,100);
+  res.json({users:users.map(u=>({id:u.id,name:u.name,email:u.email,role:roleOf(u),banned:!!u.banned,bannedReason:u.bannedReason||"",createdAt:u.createdAt}))});
+});
+app.post("/api/admin/users/:id/ban",auth,manager,(req,res)=>{
+  const users=readJson(files.users,[]),target=users.find(u=>u.id===req.params.id);
+  if(!target)return res.status(404).json({error:"User not found."});
+  if(roleOf(target)==="owner")return res.status(403).json({error:"The owner cannot be banned."});
+  if(roleLevel(target)>=roleLevel(req.user))return res.status(403).json({error:"You cannot ban a staff member at or above your role."});
+  target.banned=true;target.bannedReason=String(req.body?.reason||"Rule violation").slice(0,300);target.bannedAt=new Date().toISOString();target.bannedBy=req.user.id;
+  writeJson(files.users,users);
+  const sessions=readJson(files.sessions,{});for(const [token,userId] of Object.entries(sessions))if(userId===target.id)delete sessions[token];writeJson(files.sessions,sessions);
+  makeNotification(target.id,"ban","Your account was banned","Your Extra Games account was banned. Reason: "+target.bannedReason,{reason:target.bannedReason});
+  res.json({ok:true});
+});
+app.post("/api/admin/users/:id/unban",auth,manager,(req,res)=>{
+  const users=readJson(files.users,[]),target=users.find(u=>u.id===req.params.id);
+  if(!target)return res.status(404).json({error:"User not found."});
+  target.banned=false;delete target.bannedReason;delete target.bannedAt;delete target.bannedBy;writeJson(files.users,users);
+  makeNotification(target.id,"unban","Your account was unbanned","Your Extra Games account has been unbanned.",{});
+  res.json({ok:true});
+});
+app.post("/api/admin/users/:id/role",auth,owner,(req,res)=>{
+  const users=readJson(files.users,[]),target=users.find(u=>u.id===req.params.id),nextRole=String(req.body?.role||"user");
+  if(!target)return res.status(404).json({error:"User not found."});
+  if(target.email.toLowerCase()===ADMIN_EMAIL)return res.status(403).json({error:"The owner role cannot be changed."});
+  if(!ASSIGNABLE_ROLES.includes(nextRole))return res.status(400).json({error:"Invalid role."});
+  const previous=roleOf(target);target.role=nextRole;writeJson(files.users,users);
+  if(previous!==nextRole)makeNotification(target.id,"role","Your Extra Games role changed","Your role changed from "+previous+" to "+nextRole+".",{role:nextRole});
+  res.json({ok:true,role:nextRole});
+});
+app.get("/api/admin/reports",auth,staff,(req,res)=>{const users=readJson(files.users,[]);const reports=readJson(files.reports,[]).map(r=>({...r,reporterName:users.find(u=>u.id===r.reporterId)?.name||"Unknown",targetName:users.find(u=>u.id===r.targetUserId)?.name||"Unknown"}));res.json({reports})});
+app.post("/api/admin/reports/:id/close",auth,staff,(req,res)=>{const reports=readJson(files.reports,[]),report=reports.find(r=>r.id===req.params.id);if(!report)return res.status(404).json({error:"Report not found."});report.status="closed";report.updatedAt=new Date().toISOString();writeJson(files.reports,reports);res.json({ok:true})});
+app.get("/api/reports/evidence/:filename",auth,staff,(req,res)=>{const reports=readJson(files.reports,[]),report=reports.find(r=>r.evidence.some(e=>e.filename===req.params.filename));if(!report)return res.status(404).json({error:"Evidence not found."});const safe=path.basename(req.params.filename),filePath=path.resolve(evidenceDir,safe),root=path.resolve(evidenceDir);if(!filePath.startsWith(root+path.sep)||!fs.existsSync(filePath))return res.status(404).json({error:"Evidence unavailable."});res.sendFile(filePath)});
+app.get("/api/admin/games",auth,staff,(req,res)=>res.json({games:readJson(files.games,[]).map(g=>publicGame(g))}));
+for(const action of ["approve","reject"])app.post("/api/admin/games/:id/"+action,auth,manager,(req,res)=>{const games=readJson(files.games,[]),game=games.find(g=>g.id===req.params.id);if(!game)return res.status(404).json({error:"Game not found."});game.status=action==="approve"?"approved":"rejected";writeJson(files.games,games);res.json({game:publicGame(game)})});
 app.post("/api/create-checkout-session",auth,async(req,res)=>{try{const game=readJson(files.games,[]).find(g=>g.id===String(req.body?.gameId||"")&&g.status==="approved");if(!game)return res.status(404).json({error:"Game not found or not approved."});if(purchaseExists(req.user.id,game.id))return res.status(409).json({error:"You already own this game."});if(game.price===0){grantPurchase({userId:req.user.id,gameId:game.id});return res.json({free:true,gameId:game.id})}const stripe=stripeClient(),origin=process.env.PUBLIC_BASE_URL||req.protocol+"://"+req.get("host");const session=await stripe.checkout.sessions.create({mode:"payment",customer_email:req.user.email,line_items:[{price_data:{currency:"eur",product_data:{name:game.title,description:game.description.slice(0,500)},unit_amount:Math.round(game.price*100)},quantity:1}],metadata:{userId:req.user.id,gameId:game.id},success_url:origin+"/success.html?session_id={CHECKOUT_SESSION_ID}",cancel_url:origin+"/cancel.html"});res.json({url:session.url,sessionId:session.id})}catch(error){console.error("Checkout:",error);res.status(error.statusCode||500).json({error:error.message||"Payment service error."})}});
 app.get("/api/purchases/confirm",auth,async(req,res)=>{try{const sessionId=String(req.query.session_id||"");if(!sessionId)return res.status(400).json({error:"Missing session_id."});const session=await stripeClient().checkout.sessions.retrieve(sessionId);if(session.metadata?.userId!==req.user.id||session.payment_status!=="paid")return res.status(403).json({error:"Payment is not confirmed for this account."});const purchase=grantPurchase({userId:req.user.id,gameId:session.metadata.gameId,stripeSessionId:session.id,paymentIntentId:typeof session.payment_intent==="string"?session.payment_intent:null});res.json({ok:true,purchase})}catch(error){res.status(400).json({error:error.message||"Could not confirm payment."})}});
 app.get("/api/games/:id/download",auth,(req,res)=>{const game=readJson(files.games,[]).find(g=>g.id===req.params.id&&g.status==="approved");if(!game)return res.status(404).json({error:"Game not found."});if(!purchaseExists(req.user.id,game.id))return res.status(403).json({error:"Purchase this game before downloading it."});const root=path.resolve(uploadDir),filePath=path.resolve(uploadDir,game.filename);if(!filePath.startsWith(root+path.sep)||!fs.existsSync(filePath))return res.status(404).json({error:"Game package is unavailable."});res.download(filePath,game.originalFilename||path.basename(filePath))});
