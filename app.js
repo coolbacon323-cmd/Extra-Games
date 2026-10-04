@@ -6,7 +6,7 @@ let searchText="";
 const WISHLIST_KEY="extra_games_wishlist_v1";
 const LOCAL_USERS_KEY="extra_games_local_users_v1";
 const LOCAL_SESSION_KEY="extra_games_local_session_v1";
-const ADMIN_EMAIL=(window.EXTRA_GAMES_ADMIN_EMAIL||"").trim().toLowerCase();
+const ADMIN_EMAIL=(window.EXTRA_GAMES_ADMIN_EMAIL||"cool.bacon323@gmail.com").trim().toLowerCase();
 const readWishlist=()=>{try{return JSON.parse(localStorage.getItem(WISHLIST_KEY)||"[]").filter(Boolean)}catch{return[]}};
 const saveWishlist=list=>localStorage.setItem(WISHLIST_KEY,JSON.stringify([...new Set(list)]));
 const readLocalUsers=()=>{try{return JSON.parse(localStorage.getItem(LOCAL_USERS_KEY)||"[]")}catch{return[]}};
@@ -14,7 +14,7 @@ const saveLocalUsers=users=>localStorage.setItem(LOCAL_USERS_KEY,JSON.stringify(
 const readLocalSession=()=>{try{return JSON.parse(localStorage.getItem(LOCAL_SESSION_KEY)||"null")}catch{return null}};
 const saveLocalSession=user=>{if(user)localStorage.setItem(LOCAL_SESSION_KEY,JSON.stringify(user));else localStorage.removeItem(LOCAL_SESSION_KEY)};
 async function localHash(value){const data=new TextEncoder().encode(value),digest=await crypto.subtle.digest("SHA-256",data);return[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("")}
-function localUserView(u){return{id:u.id,name:u.name,email:u.email,isAdmin:!!u.isAdmin,localOnly:true}}
+function localUserView(u){const email=String(u.email||"").toLowerCase();const role=u.role||(email===ADMIN_EMAIL?"owner":"user");return{id:u.id,name:u.name,email:u.email,isAdmin:!!u.isAdmin||role!=="user"||email===ADMIN_EMAIL,role,localOnly:true}}
 function show(view){views.forEach(v=>v.classList.toggle("active",v.id===view));nav.forEach(n=>n.classList.toggle("active",n.dataset.view===view));if(title)title.textContent=names[view]||"Extra Games";history.replaceState(null,"","#"+view);if(view==="store")loadStore();if(view==="library")loadLibrary();if(view==="wishlist")loadWishlist();if(view==="community")loadCommunity();if(view==="messages")loadConversations();if(view==="admin")loadAdmin(); }
 nav.forEach(n=>n.addEventListener("click",()=>show(n.dataset.view)));
 document.querySelectorAll("[data-view]").forEach(n=>n.addEventListener("click",()=>{if(n.dataset.view)show(n.dataset.view)}));
@@ -37,7 +37,7 @@ async function api(path,options={}){
       const users=readLocalUsers();
       if(users.some(u=>u.email===email))throw new Error("An account with that email already exists on this device.");
       const passwordHash=await localHash(password+"|"+email);
-      const user={id:crypto.randomUUID(),name,email,passwordHash,isAdmin:ADMIN_EMAIL?email===ADMIN_EMAIL:false,createdAt:new Date().toISOString()};
+      const owner=email===ADMIN_EMAIL;const user={id:crypto.randomUUID(),name,email,passwordHash,isAdmin:owner,role:owner?"owner":"user",createdAt:new Date().toISOString()};
       users.push(user);saveLocalUsers(users);saveLocalSession(user);
       return{user:localUserView(user),local:true};
     }
@@ -69,14 +69,15 @@ async function refreshAccount(){try{
   if(!panel||!msg)return;
   if(d.user){
     const role=d.user.role||"user";
+    const isStaff=!!d.user.isAdmin||role!=="user"||String(d.user.email||"").trim().toLowerCase()===ADMIN_EMAIL;
     msg.textContent="Signed in as "+d.user.name+" ("+d.user.email+")."+(role!=="user"?" Role: "+role+".":"")+(d.local?" Web-only account stored on this device.":"");
     if(label)label.textContent=d.user.name;
     panel.hidden=false;
-    panel.innerHTML="<strong>"+(d.local?"Web account active":"Account active")+"</strong><p>"+(role!=="user"?"Staff role: "+escapeHtml(role)+". ":"")+(d.local?"This site is currently using its local account fallback because its server backend is not connected.":"Upload games, purchase approved games and manage your library.")+"</p><button class='outline' id='logout'>Log out</button>"+(d.user.isAdmin?"<button class='gold' id='open-admin-account'>Open Admin</button>":"");
+    panel.innerHTML="<strong>"+(d.local?"Web account active":"Account active")+"</strong><p>"+(role!=="user"?"Staff role: "+escapeHtml(role)+". ":"")+(d.local?"This site is currently using its local account fallback because its server backend is not connected.":"Upload games, purchase approved games and manage your library.")+"</p><button class='outline' id='logout'>Log out</button>"+(isStaff?"<button class='gold' id='open-admin-account'>Open Admin</button>":"");
     byId("logout").onclick=async()=>{await api("/api/auth/logout",{method:"POST"});location.reload()};
     byId("open-admin-account")?.addEventListener("click",()=>show("admin"));
-    if(adminNav)adminNav.hidden=!d.user.isAdmin;
-    if(d.user.isAdmin)loadAdminNotifications();
+    if(adminNav){adminNav.hidden=!isStaff;adminNav.setAttribute("aria-hidden",String(!isStaff))}
+    if(isStaff)loadAdminNotifications();
   }else{
     msg.textContent="Sign in to buy games, manage your library and upload games.";
     if(label)label.textContent="Account";
