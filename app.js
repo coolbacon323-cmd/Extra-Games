@@ -51,10 +51,8 @@ async function localGameGet(id){
   });
 }
 function localGamePublic(g){
-  return {
-    id:g.id,title:g.title,description:g.description,price:Number(g.price||0),creatorName:g.creatorName||"LOCAL CREATOR",
-    status:"approved",createdAt:g.createdAt,owned:true,localOnly:true,localCreatorId:g.creatorId
-  };
+  const session=readLocalSession();
+  return {id:g.id,title:g.title,description:g.description,price:Number(g.price||0),creatorName:g.creatorName||"LOCAL CREATOR",status:"approved",createdAt:g.createdAt,owned:!!session&&g.creatorId===session.id,localOnly:true,localCreatorId:g.creatorId};
 }
 async function localHash(value){const data=new TextEncoder().encode(value),digest=await crypto.subtle.digest("SHA-256",data);return[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("")}
 function localUserView(u){const email=String(u.email||"").toLowerCase();const role=u.role||(email===ADMIN_EMAIL?"owner":"user");return{id:u.id,name:u.name,email:u.email,isAdmin:!!u.isAdmin||role!=="user"||email===ADMIN_EMAIL,role,localOnly:true}}
@@ -110,8 +108,9 @@ async function loadStore(){
   try{const d=await api("/api/games");serverGames=d.games||[]}catch{}
   try{
     const local=await localGamesAll();
+    const session=readLocalSession();
     const serverIds=new Set(serverGames.map(g=>g.id));
-    const localPublic=local.filter(g=>!serverIds.has(g.id)).map(localGamePublic);
+    const localPublic=local.filter(g=>!!session&&g.creatorId===session.id&&!serverIds.has(g.id)).map(localGamePublic);
     currentGames=[...serverGames,...localPublic];
     renderGames();
     if(!serverGames.length&&localPublic.length){
