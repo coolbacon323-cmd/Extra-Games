@@ -103,7 +103,7 @@ function launcherVersion(){try{return window.launcher.version()}catch{return"0.5
 function updateLauncherUI(){const mode=byId("launcher-mode"),desc=byId("launcher-description");if(mode){mode.textContent=launcherAvailable()?"WINDOWS LAUNCHER":"WEB APP";mode.classList.toggle("desktop",launcherAvailable())}if(desc&&launcherAvailable())desc.textContent="Running inside Extra Games Launcher "+launcherVersion()+". This desktop app uses the same Extra Games interface."}
 function renderGames(){
   const box=byId("dynamic-games");if(!box)return;
-  const matchesType=g=>gameTypeFilter==="all"||(gameTypeFilter==="vr"?(g.gameType==="vr"||g.gameType==="both"):g.gameType===gameTypeFilter);
+  const matchesType=g=>gameTypeFilter==="all"||(gameTypeFilter==="vr"?(g.gameType==="vr"||g.gameType==="both"):gameTypeFilter==="quest-apk"?g.packageType==="apk":g.gameType===gameTypeFilter);
   const list=currentGames.filter(g=>matchesType(g)&&(String(g.title)+" "+String(g.description)+" "+String(g.creatorName)).toLowerCase().includes(searchText));
   byId("store-count").textContent=list.length+" game"+(list.length===1?"":"s");
   if(!list.length){box.innerHTML="<div class='empty compact'><strong>No games found</strong><p>Try a different search or game-type filter.</p></div>";return}
