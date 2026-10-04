@@ -1,5 +1,5 @@
 const views=[...document.querySelectorAll(".view")],byId=id=>document.getElementById(id),nav=[...document.querySelectorAll(".nav")],title=document.querySelector("#title");
-const names={home:"Discover something new",store:"Store",library:"Your Library",wishlist:"Wishlist",community:"Community",news:"News",upload:"Upload Game",account:"Account",settings:"Settings"};
+const names={home:"Discover something new",store:"Store",library:"Your Library",wishlist:"Wishlist",community:"Community",messages:"Messages",rules:"Rules",news:"News",upload:"Upload Game",account:"Account",settings:"Settings"};
 let currentGames=[];
 let searchText="";
 const WISHLIST_KEY="extra_games_wishlist_v1";
@@ -14,7 +14,7 @@ const readLocalSession=()=>{try{return JSON.parse(localStorage.getItem(LOCAL_SES
 const saveLocalSession=user=>{if(user)localStorage.setItem(LOCAL_SESSION_KEY,JSON.stringify(user));else localStorage.removeItem(LOCAL_SESSION_KEY)};
 async function localHash(value){const data=new TextEncoder().encode(value),digest=await crypto.subtle.digest("SHA-256",data);return[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("")}
 function localUserView(u){return{id:u.id,name:u.name,email:u.email,isAdmin:!!u.isAdmin,localOnly:true}}
-function show(view){views.forEach(v=>v.classList.toggle("active",v.id===view));nav.forEach(n=>n.classList.toggle("active",n.dataset.view===view));if(title)title.textContent=names[view]||"Extra Games";history.replaceState(null,"","#"+view);if(view==="store")loadStore();if(view==="library")loadLibrary();if(view==="wishlist")loadWishlist()}
+function show(view){views.forEach(v=>v.classList.toggle("active",v.id===view));nav.forEach(n=>n.classList.toggle("active",n.dataset.view===view));if(title)title.textContent=names[view]||"Extra Games";history.replaceState(null,"","#"+view);if(view==="store")loadStore();if(view==="library")loadLibrary();if(view==="wishlist")loadWishlist();if(view==="community")loadCommunity();if(view==="messages"){loadConversations()} }
 nav.forEach(n=>n.addEventListener("click",()=>show(n.dataset.view)));
 document.querySelectorAll("[data-view]").forEach(n=>n.addEventListener("click",()=>{if(n.dataset.view)show(n.dataset.view)}));
 async function api(path,options={}){
@@ -73,5 +73,140 @@ const globalSearch=byId("global-search");globalSearch?.addEventListener("input",
 byId("clear-search")?.addEventListener("click",()=>{searchText="";if(globalSearch)globalSearch.value="";renderGames()});
 byId("check-updates")?.addEventListener("click",async()=>{const s=byId("update-status");if(!launcherAvailable()){s.textContent="Open the Windows launcher to update it.";return}s.textContent="Checking…";try{const result=await window.launcher.checkForUpdates();s.textContent=result?.updateInfo?"Update found.":"You're up to date."}catch{s.textContent="Update check unavailable."}});
 if(launcherAvailable()){window.launcher.onUpdateAvailable(info=>{const s=byId("update-status");if(s)s.textContent="Update "+(info?.version||"available")+" ready to download.";});window.launcher.onUpdateDownloaded(info=>{const s=byId("update-status");if(s)s.textContent="Update downloaded. Restart to install.";});}
+let selectedMessageUser=null;
+async function loadCommunity(){
+  document.querySelectorAll(".social-tab").forEach((b,i)=>b.classList.toggle("active",i===0));
+  document.querySelectorAll(".social-panel").forEach((p,i)=>p.classList.toggle("active",i===0));
+  await Promise.all([loadFriends(),loadCommunities(""),loadCommunityInvites()]);
+}
+function switchSocialTab(tab){
+  document.querySelectorAll(".social-tab").forEach(b=>b.classList.toggle("active",b.dataset.socialTab===tab));
+  document.querySelectorAll(".social-panel").forEach(p=>p.classList.toggle("active",p.id==="social-"+tab));
+  if(tab==="friends")loadFriends();
+  if(tab==="communities")loadCommunities("");
+  if(tab==="invites")loadCommunityInvites();
+}
+document.querySelectorAll(".social-tab").forEach(b=>b.addEventListener("click",()=>switchSocialTab(b.dataset.socialTab)));
+
+async function searchPeople(){
+  const q=byId("people-search")?.value.trim()||"";
+  const box=byId("people-results");if(!box)return;
+  if(q.length<2){box.innerHTML="<div class='empty compact'><strong>Search for a player</strong><p>Enter at least 2 characters of their display name.</p></div>";return}
+  box.innerHTML="<div class='empty compact'><strong>Searching…</strong></div>";
+  try{
+    const d=await api("/api/users/search?q="+encodeURIComponent(q));
+    if(!d.users?.length){box.innerHTML="<div class='empty compact'><strong>No players found</strong><p>Try another display name.</p></div>";return}
+    box.innerHTML=d.users.map(u=>{
+      const status=u.friendStatus;
+      const friendButton=status==="accepted"?"<button class='outline' disabled>Friends</button>":status==="pending"?"<button class='outline' disabled>Request pending</button>":"<button class='gold add-friend' data-id='"+u.id+"'>Add Friend</button>";
+      return "<article class='person-card'><div class='person-avatar'>"+escapeHtml(u.name.slice(0,2).toUpperCase())+"</div><div class='person-main'><span class='badge'>PLAYER</span><h3>"+escapeHtml(u.name)+"</h3><div class='person-actions'>"+friendButton+"<button class='outline message-user' data-id='"+u.id+"'>Message</button><button class='outline block-user' data-id='"+u.id+"'>Block</button><button class='danger-button report-user' data-id='"+u.id+"' data-name='"+escapeHtml(u.name)+"'>Report</button></div></div></article>"
+    }).join("");
+    box.querySelectorAll(".add-friend").forEach(b=>b.onclick=async()=>{try{await api("/api/friends/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:b.dataset.id})});searchPeople()}catch(e){alert(e.message)}});
+    box.querySelectorAll(".message-user").forEach(b=>b.onclick=()=>openMessageUser(b.dataset.id));
+    box.querySelectorAll(".block-user").forEach(b=>b.onclick=()=>blockUser(b.dataset.id));
+    box.querySelectorAll(".report-user").forEach(b=>b.onclick=()=>openReportModal(b.dataset.id,b.dataset.name));
+  }catch(e){box.innerHTML="<div class='empty compact'><strong>Player search unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+}
+byId("people-search-button")?.addEventListener("click",searchPeople);
+byId("people-search")?.addEventListener("keydown",e=>{if(e.key==="Enter")searchPeople()});
+
+async function blockUser(id){
+  if(!confirm("Block this player? They will not be able to message or add you while blocked."))return;
+  try{await api("/api/blocks/"+encodeURIComponent(id),{method:"POST"});alert("Player blocked.");searchPeople()}catch(e){alert(e.message)}
+}
+async function loadFriends(){
+  const box=byId("friends-list"),requests=byId("friend-requests");if(!box||!requests)return;
+  try{
+    const d=await api("/api/friends");
+    requests.innerHTML=d.incoming?.length?"<div class='subheading'>Incoming requests</div>"+d.incoming.map(x=>"<article class='person-card compact-card'><div><strong>"+escapeHtml(x.user.name)+"</strong><p>Wants to add you.</p></div><div class='person-actions'><button class='gold accept-friend' data-id='"+x.id+"'>Accept</button><button class='outline decline-friend' data-id='"+x.id+"'>Decline</button></div></article>").join(""):"";
+    requests.querySelectorAll(".accept-friend").forEach(b=>b.onclick=async()=>{await api("/api/friends/"+b.dataset.id+"/accept",{method:"POST"});loadFriends()});
+    requests.querySelectorAll(".decline-friend").forEach(b=>b.onclick=async()=>{await api("/api/friends/"+b.dataset.id+"/decline",{method:"POST"});loadFriends()});
+    box.innerHTML=d.friends?.length?d.friends.map(u=>"<article class='person-card compact-card'><div class='person-avatar'>"+escapeHtml(u.name.slice(0,2).toUpperCase())+"</div><div class='person-main'><h3>"+escapeHtml(u.name)+"</h3><div class='person-actions'><button class='outline friend-message' data-id='"+u.id+"'>Message</button><button class='danger-button friend-block' data-id='"+u.id+"'>Block</button></div></div></article>").join(""):"<div class='empty compact'><strong>No friends yet</strong><p>Use People to search display names and send requests.</p></div>";
+    box.querySelectorAll(".friend-message").forEach(b=>b.onclick=()=>openMessageUser(b.dataset.id));
+    box.querySelectorAll(".friend-block").forEach(b=>b.onclick=()=>blockUser(b.dataset.id));
+  }catch(e){box.innerHTML="<div class='empty compact'><strong>Friends unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+}
+async function loadCommunities(q){
+  const box=byId("community-results");if(!box)return;
+  box.innerHTML="<div class='empty compact'><strong>Loading communities…</strong></div>";
+  try{
+    const d=await api("/api/communities?q="+encodeURIComponent(q||""));
+    if(!d.communities?.length){box.innerHTML="<div class='empty compact'><strong>No communities found</strong><p>Create one or search another group name.</p></div>";return}
+    box.innerHTML=d.communities.map(c=>{
+      const vis=c.visibility==="public"?"PUBLIC":c.visibility==="private"?"PRIVATE":"INVITE ONLY";
+      const join=c.isMember?"<button class='outline' disabled>Joined</button>":"<button class='gold join-community' data-id='"+c.id+"'>"+(c.isInvited?"Accept Invite":"Join")+"</button>";
+      const invite=c.canInvite?"<button class='outline invite-community' data-id='"+c.id+"'>Invite Player</button>":"";
+      return "<article class='community-result'><div class='community-mark'>◆</div><div class='community-main'><div class='community-head'><span class='badge'>"+vis+"</span><span class='muted'>"+c.memberCount+" member"+(c.memberCount===1?"":"s")+"</span></div><h3>"+escapeHtml(c.name)+"</h3><p>"+escapeHtml(c.description||"No description.")+"</p><div class='person-actions'>"+join+invite+"</div></div></article>"
+    }).join("");
+    box.querySelectorAll(".join-community").forEach(b=>b.onclick=async()=>{try{await api("/api/communities/"+b.dataset.id+"/join",{method:"POST"});loadCommunities(q);loadCommunityInvites()}catch(e){alert(e.message)}});
+    box.querySelectorAll(".invite-community").forEach(b=>b.onclick=()=>inviteToCommunity(b.dataset.id));
+  }catch(e){box.innerHTML="<div class='empty compact'><strong>Communities unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+}
+byId("community-search-button")?.addEventListener("click",()=>loadCommunities(byId("community-search")?.value.trim()||""));
+byId("community-search")?.addEventListener("keydown",e=>{if(e.key==="Enter")loadCommunities(byId("community-search").value.trim())});
+byId("community-create-form")?.addEventListener("submit",async e=>{e.preventDefault();const s=byId("community-create-status");s.textContent="Creating…";try{await api("/api/communities",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formData(e.target))});s.textContent="Community created.";e.target.reset();loadCommunities("")}catch(err){s.textContent=err.message}});
+async function inviteToCommunity(id){
+  const name=prompt("Enter the exact display name to invite:");
+  if(!name)return;
+  try{
+    const d=await api("/api/users/search?q="+encodeURIComponent(name.trim()));
+    const user=(d.users||[]).find(u=>u.name.toLowerCase()===name.trim().toLowerCase())||d.users?.[0];
+    if(!user)throw new Error("Player not found.");
+    await api("/api/communities/"+id+"/invite",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:user.id})});
+    alert("Invite sent to "+user.name+".");
+  }catch(e){alert(e.message)}
+}
+async function loadCommunityInvites(){
+  const box=byId("community-invites");if(!box)return;
+  try{
+    const d=await api("/api/communities/invites");
+    box.innerHTML=d.invites?.length?d.invites.map(x=>"<article class='community-result'><div class='community-mark'>✦</div><div class='community-main'><span class='badge'>INVITE</span><h3>"+escapeHtml(x.community.name)+"</h3><p>"+escapeHtml(x.community.description||"")+"</p><div class='person-actions'><button class='gold accept-community' data-id='"+x.id+"' data-community='"+x.community.id+"'>Join Community</button><button class='outline decline-community' data-id='"+x.id+"'>Decline</button></div></div></article>").join(""):"<div class='empty compact'><strong>No pending invites</strong></div>";
+    box.querySelectorAll(".accept-community").forEach(b=>b.onclick=async()=>{try{await api("/api/communities/"+b.dataset.community+"/join",{method:"POST"});loadCommunityInvites();loadCommunities("")}catch(e){alert(e.message)}});
+    box.querySelectorAll(".decline-community").forEach(b=>b.onclick=async()=>{await api("/api/communities/invites/"+b.dataset.id+"/decline",{method:"POST"});loadCommunityInvites()});
+  }catch(e){box.innerHTML="<div class='empty compact'><strong>Invites unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+}
+
+async function loadConversations(){
+  const box=byId("conversation-list");if(!box)return;
+  try{
+    const d=await api("/api/messages/conversations");
+    box.innerHTML=d.conversations?.length?d.conversations.map(c=>"<button class='conversation-item' data-id='"+c.user.id+"'><span class='person-avatar'>"+escapeHtml(c.user.name.slice(0,2).toUpperCase())+"</span><span><strong>"+escapeHtml(c.user.name)+"</strong><small>"+escapeHtml(c.lastMessage.slice(0,60))+"</small></span></button>").join(""):"<div class='empty compact'><strong>No conversations yet</strong><p>Search for a player in Community and choose Message.</p></div>";
+    box.querySelectorAll(".conversation-item").forEach(b=>b.onclick=()=>openMessageUser(b.dataset.id));
+  }catch(e){box.innerHTML="<div class='empty compact'><strong>Messages unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+}
+async function openMessageUser(id){
+  try{
+    const s=await api("/api/users/search?q="+encodeURIComponent(id));
+    let user=s.users?.find(u=>u.id===id);
+    if(!user){const d=await api("/api/messages?userId="+encodeURIComponent(id));user={id,name:"Player"};selectedMessageUser=id;show("messages");renderMessageHistory(d.messages||[],user);return}
+    selectedMessageUser=user.id;byId("message-to-user").value=user.id;byId("message-title").textContent="Message "+user.name;show("messages");await loadMessageHistory(user.id,user);
+  }catch(e){alert(e.message)}
+}
+async function loadMessageHistory(id,user){
+  try{const d=await api("/api/messages?userId="+encodeURIComponent(id));renderMessageHistory(d.messages||[],user)}catch(e){byId("message-history").innerHTML="<div class='empty compact'><strong>Conversation unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
+}
+function renderMessageHistory(messages,user){
+  const box=byId("message-history");if(!box)return;
+  box.innerHTML=messages.length?messages.map(m=>"<div class='message-bubble "+(m.mine?"mine":"theirs")+"'><span>"+escapeHtml(m.body)+"</span><small>"+new Date(m.createdAt).toLocaleString()+"</small></div>").join(""):"<div class='empty compact'><strong>No messages yet</strong><p>Start the conversation.</p></div>";
+  box.scrollTop=box.scrollHeight;
+  if(byId("message-to-user"))byId("message-to-user").value=user.id;
+}
+byId("message-form")?.addEventListener("submit",async e=>{e.preventDefault();const toId=byId("message-to-user")?.value;if(!toId){byId("message-status").textContent="Select a conversation first.";return}try{await api("/api/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({toUserId:toId,body:byId("message-body").value})});byId("message-body").value="";const title=byId("message-title")?.textContent?.replace(/^Message /,"")||"Player";await loadMessageHistory(toId,{id:toId,name:title});loadConversations();byId("message-status").textContent="Sent."}catch(err){byId("message-status").textContent=err.message}});
+function openReportModal(targetUserId,targetName){
+  let modal=byId("report-modal");
+  if(!modal){
+    modal=document.createElement("div");modal.id="report-modal";modal.className="modal-backdrop";
+    modal.innerHTML="<div class='modal-card'><button class='modal-close' id='report-close'>×</button><span class='eyebrow'>SAFETY REPORT</span><h2>Report "+escapeHtml(targetName)+"</h2><p>Submit a clear report for a possible rule violation. You can attach screenshots, photos, or MP4 video evidence.</p><form id='report-form'><input type='hidden' name='targetUserId' value='"+escapeHtml(targetUserId)+"'><label>Reason<input name='reason' maxlength='120' required placeholder='Harassment, spam, cheating, etc.'></label><label>Details<textarea name='details' maxlength='3000' required placeholder='Explain what happened and when it happened.'></textarea></label><label>Evidence<input name='evidence' type='file' accept='image/png,image/jpeg,image/webp,image/gif,video/mp4' multiple></label><p class='evidence-note'>Up to 5 files, each up to 50 MB. Supported: PNG, JPG, JPEG, WEBP, GIF, MP4.</p><button class='gold' type='submit'>Submit Report</button><p id='report-status' class='form-status'></p></form></div>";
+    document.body.appendChild(modal);
+    byId("report-close").onclick=()=>modal.remove();
+    byId("report-form").onsubmit=async e=>{
+      e.preventDefault();const s=byId("report-status");s.textContent="Submitting…";
+      const files=byId("report-form").querySelector("input[type=file]").files;
+      if(files.length>5){s.textContent="Choose no more than 5 evidence files.";return}
+      for(const f of files)if(f.size>50*1024*1024){s.textContent="Each evidence file must be 50 MB or smaller.";return}
+      try{await api("/api/reports",{method:"POST",body:new FormData(e.target)});s.textContent="Report submitted for moderation.";setTimeout(()=>modal.remove(),1200)}catch(err){s.textContent=err.message}
+    };
+  }
+}
 refreshAccount();updateLauncherUI();
 const initial=location.hash.slice(1);show(names[initial]?initial:"home");
