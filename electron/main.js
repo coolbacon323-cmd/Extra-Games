@@ -7,12 +7,13 @@ let updater;
 let localServer;
 let localPort;
 
-function startLocalServer(){
+async function startLocalServer(){
   process.env.PORT="0";
   process.env.EXTRA_GAMES_VERSION=app.getVersion();
   process.env.EXTRA_GAMES_DATA_DIR=app.getPath("userData");
   localServer=require("../server.js");
-  localPort=localServer?.server?.address()?.port;
+  await localServer.ready;
+  localPort=localServer.server.address()?.port;
   if(!localPort)throw new Error("Extra Games local server did not start.");
 }
 function waitForServer(port,attempts=30){
