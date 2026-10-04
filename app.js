@@ -115,7 +115,7 @@ function renderGames(){
     const reportButton="<button class='outline report-game' data-id='"+escapeHtml(g.id)+"'>Report</button>";
     const deleteButton=g.creatorId===window.__extraGamesUserId?"<button class='danger-button delete-game' data-id='"+escapeHtml(g.id)+"'>Delete</button>":"";
     const vrMeta=vr?"<div class='vr-meta'><span>VR READY</span>"+(apk?"<span>QUEST APK</span>":"")+(g.vrDevice?"<span>"+escapeHtml(g.vrDevice.replaceAll("-"," ").toUpperCase())+"</span>":"")+(g.vrRuntime?"<span>"+escapeHtml(g.vrRuntime)+"</span>":"")+(g.vrHeadsets?"<small>"+escapeHtml(g.vrHeadsets)+"</small>":"")+"</div>":"";
-    return "<article class='game-card "+(vr?"vr-game-card":"")+(apk?" quest-apk-card":"")+"'><div class='game-art'>"+(apk?"QUEST ":"")+(vr&&!apk?"VR ":"")+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><div class='game-card-badges'><span class='badge'>"+escapeHtml(typeBadge)+"</span><span class='badge package-badge'>"+escapeHtml(packageBadge)+"</span>"+(g.localOnly?"<span class='badge local-badge'>LOCAL</span>":"")+"</div><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p>"+vrMeta+"<div class='game-bottom'><strong>"+(g.price===0?"FREE":"€"+Number(g.price).toFixed(2))+"</strong><div><button class='icon-button wish-game' data-id='"+g.id+"' title='Wishlist'>"+(wished.has(g.id)?"♥":"♡")+"</button><button class='gold buy-game' data-id='"+g.id+"'>"+(owned?"Open Library":(g.price===0?"Get Free":"Buy Game"))+"</button>"+reportButton</div></div></div></article>"
+    return "<article class='game-card "+(vr?"vr-game-card":"")+(apk?" quest-apk-card":"")+"'><div class='game-art'>"+(apk?"QUEST ":"")+(vr&&!apk?"VR ":"")+escapeHtml((g.title||"EX").slice(0,2).toUpperCase())+"</div><div class='game-info'><div class='game-card-badges'><span class='badge'>"+escapeHtml(typeBadge)+"</span><span class='badge package-badge'>"+escapeHtml(packageBadge)+"</span>"+(g.localOnly?"<span class='badge local-badge'>LOCAL</span>":"")+"</div><h3>"+escapeHtml(g.title)+"</h3><p>"+escapeHtml(g.description||"")+"</p>"+vrMeta+"<div class='game-bottom'><strong>"+(g.price===0?"FREE":"€"+Number(g.price).toFixed(2))+"</strong><div><button class='icon-button wish-game' data-id='"+g.id+"' title='Wishlist'>"+(wished.has(g.id)?"♥":"♡")+"</button><button class='gold buy-game' data-id='"+g.id+"'>"+(owned?"Download":(g.price===0?"Get Free":"Buy Game"))+"</button>"+reportButton</div></div></div></article>"
   }).join("");
   box.querySelectorAll(".wish-game").forEach(b=>b.onclick=()=>toggleWishlist(b.dataset.id));
   box.querySelectorAll(".delete-game").forEach(b=>b.onclick=async()=>{
@@ -141,7 +141,11 @@ function renderGames(){
       alert("Game report submitted. Extra Games staff will review it.");
     }catch(e){alert(e.message)}
   });
-  box.querySelectorAll(".buy-game").forEach(b=>b.onclick=()=>{const g=currentGames.find(x=>x.id===b.dataset.id);if(g?.owned)show("library");else startCheckout(b.dataset.id)})
+  box.querySelectorAll(".buy-game").forEach(b=>b.onclick=async()=>{
+    const g=currentGames.find(x=>x.id===b.dataset.id);if(!g)return;
+    if(g.owned){location.href="/api/games/"+encodeURIComponent(g.id)+"/download";return}
+    startCheckout(g.id);
+  })
 }
 async function loadStore(){
   const box=byId("dynamic-games");if(!box)return;
