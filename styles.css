@@ -21,3 +21,44 @@
 .admin-nav{position:relative}.admin-badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 4px;margin-left:7px;border-radius:999px;background:var(--gold);color:#111;font-size:9px;font-weight:900}
 .admin-tabs{display:flex;gap:8px;margin-bottom:18px;border-bottom:1px solid var(--line);padding-bottom:10px}.admin-tab{background:#0b0b0b;border:1px solid var(--line);color:#aaa;padding:10px 15px;border-radius:6px;cursor:pointer}.admin-tab.active,.admin-tab:hover{color:var(--gold2);border-color:#4c3d1f;background:#171208}.admin-panel{display:none}.admin-panel.active{display:block}.admin-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.admin-stat{border:1px solid var(--line);background:linear-gradient(145deg,#12110f,#0b0b0b);padding:22px;display:grid;gap:7px}.admin-stat span{font-size:9px;letter-spacing:2px;color:var(--gold)}.admin-stat strong{font-size:27px}.admin-stat small{color:var(--muted)}.admin-help{margin-top:15px;border:1px solid #49391a;background:#141008;padding:20px}.admin-help p{color:var(--muted);line-height:1.6;margin:7px 0}.admin-toolbar{display:flex;gap:9px;margin-bottom:15px}.admin-toolbar .social-input{flex:1}.admin-results{display:grid;gap:11px}.admin-user-card{display:flex;gap:16px;border:1px solid var(--line);background:linear-gradient(145deg,#12110f,#0b0b0b);padding:16px}.admin-user-main{min-width:0;flex:1}.admin-user-head{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}.admin-user-head h3{margin:7px 0 2px}.admin-user-head small{color:var(--muted)}.ban-state{font-size:9px;letter-spacing:1.5px;padding:6px 8px;border:1px solid #34401e;color:#9cc66c}.ban-state.banned{border-color:#5a3028;color:#e29a8b}.admin-user-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:13px}.admin-user-actions label{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:11px}.admin-role-select{background:#080808;border:1px solid #38342b;color:var(--text);padding:9px;border-radius:6px}.owner-lock{font-size:10px;letter-spacing:1px;color:var(--gold2);border:1px solid #49391a;padding:9px 11px}.ban-reason{font-size:11px!important;color:#d2988d!important;margin:10px 0 0!important}.admin-report-card{border:1px solid var(--line);background:#0d0d0d;padding:18px}.admin-report-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:9px}.admin-report-card p{color:var(--muted);line-height:1.6;margin:6px 0}.evidence-list{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.evidence-link{border:1px solid #4b3b1c;background:#151107;padding:8px 10px;color:var(--gold2);text-decoration:none;border-radius:6px;font-size:11px}.notification-card{display:flex;justify-content:space-between;gap:15px;border:1px solid var(--line);background:#0d0d0d;padding:17px}.notification-card.unread{border-color:#4c3d1f;background:#151208}.notification-card h3{margin:8px 0}.notification-card p{color:var(--muted);line-height:1.55;margin:0 0 7px}.notification-card small{color:#77736a}.notification-card.read{opacity:.78}
 @media(max-width:900px){.admin-stat-grid{grid-template-columns:1fr}.admin-toolbar{flex-direction:column}.admin-user-head{flex-direction:column}}
+
+:root{--ease-out:cubic-bezier(.22,1,.36,1);--ease-in-out:cubic-bezier(.65,0,.35,1)}
+@keyframes egFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes egFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes egScaleIn{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:scale(1)}}
+@keyframes egPulse{0%,100%{box-shadow:0 0 0 0 rgba(215,170,56,0)}50%{box-shadow:0 0 0 6px rgba(215,170,56,.05)}}
+@keyframes egShimmer{0%{background-position:180% 0}100%{background-position:-80% 0}}
+
+.nav,.gold,.outline,.header-account,.text-button,.quick-card,.social-tab,.admin-tab,.icon-button,.conversation-item,.danger-button{transition:transform .18s var(--ease-out),background-color .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,filter .18s ease,opacity .18s ease}
+.nav:hover{transform:translateX(2px)}
+.nav.active{box-shadow:inset 3px 0 0 var(--gold),0 4px 18px rgba(0,0,0,.12)}
+.gold:hover,.outline:hover{transform:translateY(-1px)}
+.gold:active,.outline:active,.header-account:active,.icon-button:active,.danger-button:active{transform:translateY(0) scale(.985)}
+.gold:focus-visible,.outline:focus-visible,.header-account:focus-visible,.nav:focus-visible,.text-button:focus-visible,.social-tab:focus-visible,.admin-tab:focus-visible,.danger-button:focus-visible,.icon-button:focus-visible,.conversation-item:focus-visible{outline:2px solid #d7aa38;outline-offset:2px}
+
+main>header{animation:egFadeUp .45s var(--ease-out) both}
+.view.active{animation:egFadeIn .22s ease both}
+.view.active .page-banner{animation:egFadeUp .42s var(--ease-out) both}
+.view.active .hero{animation:egScaleIn .5s var(--ease-out) both}
+.view.active .quick-card,.view.active .feature-card,.view.active .game-card,.view.active .person-card,.view.active .community-result,.view.active .news-card,.view.active .rules-card,.view.active .admin-user-card,.view.active .admin-report-card,.view.active .notification-card{animation:egFadeUp .38s var(--ease-out) both}
+.view.active .quick-card:nth-child(2),.view.active .feature-card:nth-child(2),.view.active .game-card:nth-child(2),.view.active .person-card:nth-child(2),.view.active .community-result:nth-child(2),.view.active .rules-card:nth-child(2),.view.active .admin-user-card:nth-child(2),.view.active .notification-card:nth-child(2){animation-delay:40ms}
+.view.active .quick-card:nth-child(3),.view.active .feature-card:nth-child(3),.view.active .game-card:nth-child(3),.view.active .person-card:nth-child(3),.view.active .community-result:nth-child(3),.view.active .rules-card:nth-child(3),.view.active .admin-user-card:nth-child(3),.view.active .notification-card:nth-child(3){animation-delay:80ms}
+.view.active .quick-card:nth-child(4),.view.active .game-card:nth-child(4),.view.active .person-card:nth-child(4),.view.active .community-result:nth-child(4),.view.active .rules-card:nth-child(4),.view.active .admin-user-card:nth-child(4),.view.active .notification-card:nth-child(4){animation-delay:120ms}
+
+.game-card,.feature-card,.news-card,.community-card,.community-result,.person-card,.rules-card,.admin-user-card,.admin-report-card,.notification-card,.store-tile,.admin-stat,.quick-card{transition:transform .22s var(--ease-out),border-color .22s ease,box-shadow .22s ease,background-color .22s ease}
+.game-card:hover,.feature-card:hover,.news-card:hover,.community-card:hover,.community-result:hover,.person-card:hover,.rules-card:hover,.admin-user-card:hover,.admin-report-card:hover,.notification-card:hover,.store-tile:hover,.admin-stat:hover{transform:translateY(-3px);border-color:#403721;box-shadow:0 12px 34px rgba(0,0,0,.22)}
+
+.form-card input,.form-card textarea,.social-input,.inline-form input,.inline-form select,.modal-card input,.modal-card textarea,.admin-role-select,.message-form textarea{transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease}
+.form-card input:focus,.form-card textarea:focus,.social-input:focus,.inline-form input:focus,.inline-form select:focus,.modal-card input:focus,.modal-card textarea:focus,.admin-role-select:focus,.message-form textarea:focus{outline:none;border-color:#725b27;background:#0a0a09;box-shadow:0 0 0 3px rgba(215,170,56,.07)}
+.search-box{transition:border-color .18s ease,box-shadow .18s ease,transform .18s var(--ease-out)}
+.search-box:focus-within{border-color:#55451f;box-shadow:0 6px 20px rgba(0,0,0,.15);transform:translateY(-1px)}
+.status{animation:egPulse 2.8s ease-in-out infinite}
+.art-ring{animation:egPulse 4s ease-in-out infinite}
+.hero:after{background-size:200% 100%;animation:egShimmer 7s linear infinite}
+.modal-backdrop{animation:egFadeIn .18s ease both}
+.modal-card{animation:egScaleIn .24s var(--ease-out) both}
+.social-tab.active,.admin-tab.active{box-shadow:0 5px 18px rgba(0,0,0,.16)}
+.person-avatar,.community-mark,.download-icon,.mini-icon,.tile-icon{transition:transform .18s var(--ease-out),border-color .18s ease,box-shadow .18s ease}
+.person-card:hover .person-avatar,.community-result:hover .community-mark,.download-card:hover .download-icon{transform:scale(1.035);border-color:#6a5420;box-shadow:0 8px 22px rgba(0,0,0,.2)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+@media(max-width:800px){.nav:hover{transform:none}.game-card:hover,.feature-card:hover,.news-card:hover,.community-card:hover,.community-result:hover,.person-card:hover,.rules-card:hover,.admin-user-card:hover,.admin-report-card:hover,.notification-card:hover,.store-tile:hover,.admin-stat:hover{transform:none}}
