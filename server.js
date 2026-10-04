@@ -46,6 +46,7 @@ app.post("/api/auth/logout",(req,res)=>{const token=req.headers.authorization?.s
 const upload=multer({storage:multer.diskStorage({destination:uploadDir,filename:(req,file,cb)=>cb(null,crypto.randomUUID()+path.extname(file.originalname).toLowerCase())}),limits:{fileSize:2*1024*1024*1024},fileFilter:(req,file,cb)=>{const ext=path.extname(file.originalname).toLowerCase();cb(ext===".zip"||ext===".exe"?null:new Error("Only .zip and .exe game packages are allowed."))}});
 
 // Social features: friends, messaging, blocking, reports and communities.
+app.get("/api/users/:id",auth,(req,res)=>{const u=getUserById(req.params.id);if(!u||u.id===req.user.id||blockedPair(req.user.id,u.id))return res.status(404).json({error:"Player not found."});const f=friendship(req.user.id,u.id);res.json({user:publicProfile(u,{friendStatus:f?.status||null})})});
 app.get("/api/users/search",auth,(req,res)=>{
   const q=String(req.query.q||"").trim().toLowerCase();
   if(q.length<2)return res.json({users:[]});
