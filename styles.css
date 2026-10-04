@@ -93,3 +93,11 @@ main>header{animation:egFadeUp .45s var(--ease-out) both}
 .vr-headset-fieldset label:first-of-type{margin-top:2px}
 .vr-headset-fieldset input{width:auto;accent-color:var(--gold)}
 .vr-meta span:nth-child(2){color:#dfc16a}
+
+.quest-download-card{display:flex;align-items:center;gap:28px;border:1px solid #4b3d20;background:linear-gradient(145deg,#171208,#0b0b0b);padding:30px;margin-bottom:16px;box-shadow:0 18px 50px rgba(0,0,0,.18);animation:egFadeUp .4s var(--ease-out) both}
+.quest-app-icon{width:110px;height:110px;flex:0 0 auto;display:grid;place-items:center;border:1px solid var(--gold);color:var(--gold2);font-size:34px;font-weight:950;letter-spacing:2px;background:radial-gradient(circle,#241e0c,#090909);box-shadow:0 0 45px rgba(215,170,56,.08)}
+.quest-download-copy{min-width:0}.quest-download-copy h3{font-size:28px;margin:8px 0}.quest-download-copy p{color:var(--muted);line-height:1.65;max-width:760px}
+.quest-specs{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0}.quest-specs span{font-size:9px;letter-spacing:1px;color:#bdb5a4;border:1px solid #39352d;background:#0d0d0d;padding:7px 9px;border-radius:999px}
+.quest-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.quest-download-button{text-decoration:none;display:inline-block}.quest-file-note{font-size:10px;color:#6d685d}
+.quest-info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:800px){.quest-download-card{flex-direction:column;align-items:flex-start}.quest-info-grid{grid-template-columns:1fr}}
