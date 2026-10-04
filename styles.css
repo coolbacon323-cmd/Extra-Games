@@ -101,3 +101,16 @@ main>header{animation:egFadeUp .45s var(--ease-out) both}
 .quest-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.quest-download-button{text-decoration:none;display:inline-block}.quest-file-note{font-size:10px;color:#6d685d}
 .quest-info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 @media(max-width:800px){.quest-download-card{flex-direction:column;align-items:flex-start}.quest-info-grid{grid-template-columns:1fr}}
+
+.community-member-list{display:grid;gap:9px;max-height:55vh;overflow:auto;padding-right:3px}
+.community-member-list .person-card{align-items:center}
+.community-member-list .person-main{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.community-role-select{background:#080808;border:1px solid #38342b;color:var(--text);padding:9px;border-radius:6px;font:inherit}
+.community-role-select:focus{outline:none;border-color:#725b27;box-shadow:0 0 0 3px rgba(215,170,56,.07)}
+#blocked-list{margin-bottom:10px}
+#friend-requests:empty{display:none}
+@media(max-width:650px){
+  .community-member-list .person-main{align-items:flex-start;flex-direction:column}
+  .community-member-list .person-actions{width:100%}
+  .community-role-select{width:100%}
+}
