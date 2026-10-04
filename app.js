@@ -1,5 +1,5 @@
 const views=[...document.querySelectorAll(".view")],byId=id=>document.getElementById(id),nav=[...document.querySelectorAll(".nav")],title=document.querySelector("#title");
-const names={home:"Discover something new",store:"Store",library:"Your Library",wishlist:"Wishlist",community:"Community",messages:"Messages",rules:"Rules",admin:"Admin",news:"News",upload:"Upload Game",account:"Account",settings:"Settings"};
+const names={home:"Discover something new",store:"Store",library:"Your Library",wishlist:"Wishlist",community:"Community",messages:"Messages",rules:"Rules",quest:"Quest App",admin:"Admin",news:"News",upload:"Upload Game",account:"Account",settings:"Settings"};
 let currentGames=[];
 let currentStaffRole="user";
 let searchText="";
