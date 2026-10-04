@@ -48,6 +48,12 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "Extra-Games-Launcher-Setup-${version}.${ext}",
@@ -62,8 +68,7 @@
       "shortcutName": "Extra Games Launcher",
       "uninstallDisplayName": "Extra Games Launcher",
       "deleteAppDataOnUninstall": false,
-      "runAfterFinish": true,
-      "include": "installer.nsh"
+      "runAfterFinish": true
     },
     "publish": [
       {
