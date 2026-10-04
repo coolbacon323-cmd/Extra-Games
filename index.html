@@ -19,6 +19,7 @@
       <button class="nav" data-view="community">◎ <span>Community</span></button>
       <button class="nav" data-view="messages">✉ <span>Messages</span></button>
       <button class="nav" data-view="rules">§ <span>Rules</span></button>
+      <button class="nav admin-nav" data-view="admin" hidden>🛡 <span>Admin</span><b id="admin-badge" class="admin-badge" hidden>0</b></button>
       <button class="nav" data-view="news">▤ <span>News</span></button>
       <button class="nav" data-view="upload">⬆ <span>Upload Game</span></button>
       <button class="nav" data-view="account">● <span>Account</span></button>
@@ -163,6 +164,44 @@
           </form>
           <p id="message-status" class="form-status"></p>
         </section>
+      </div>
+    </section>
+
+    <section id="admin" class="view">
+      <div class="page-banner"><span class="eyebrow">STAFF CONTROL CENTER</span><h2>Admin</h2><p id="admin-role-line">Owner and staff moderation tools.</p></div>
+
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-admin-tab="overview">Overview</button>
+        <button class="admin-tab" data-admin-tab="users">Users</button>
+        <button class="admin-tab" data-admin-tab="reports">Reports</button>
+        <button class="admin-tab" data-admin-tab="notifications">Notifications</button>
+      </div>
+
+      <div id="admin-overview" class="admin-panel active">
+        <div class="admin-stat-grid">
+          <div class="admin-stat"><span>ROLE</span><strong id="admin-current-role">—</strong><small>Your current staff level</small></div>
+          <div class="admin-stat"><span>NOTIFICATIONS</span><strong id="admin-unread-count">0</strong><small>Unread moderation alerts</small></div>
+          <div class="admin-stat"><span>REPORTS</span><strong id="admin-report-count">0</strong><small>Open user reports</small></div>
+        </div>
+        <div class="admin-help"><strong>Role hierarchy</strong><p>Owner → Co-owner → Admin → Manager → Moderator → User</p><p>Only the owner can promote, demote or assign staff roles. Manager-level staff can ban users below their own role. Owner accounts cannot be banned or demoted.</p></div>
+      </div>
+
+      <div id="admin-users" class="admin-panel">
+        <div class="admin-toolbar">
+          <input id="admin-user-search" class="social-input" placeholder="Search by display name or email..." maxlength="80">
+          <button class="gold" id="admin-user-search-button">Search</button>
+        </div>
+        <div id="admin-user-results" class="admin-results"><div class="empty compact"><strong>Search users</strong><p>Only staff can access this list.</p></div></div>
+      </div>
+
+      <div id="admin-reports" class="admin-panel">
+        <div class="admin-toolbar"><button class="outline" id="admin-refresh-reports">Refresh reports</button></div>
+        <div id="admin-report-results" class="admin-results"><div class="empty compact"><strong>Loading reports…</strong></div></div>
+      </div>
+
+      <div id="admin-notifications" class="admin-panel">
+        <div class="admin-toolbar"><button class="outline" id="admin-read-all">Mark all read</button><button class="gold" id="admin-refresh-notifications">Refresh</button></div>
+        <div id="admin-notification-results" class="admin-results"><div class="empty compact"><strong>Loading notifications…</strong></div></div>
       </div>
     </section>
 
