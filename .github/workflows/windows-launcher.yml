@@ -9,9 +9,12 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: extra-games-windows-\${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-windows:
-    if: ${{ !contains(github.event.head_commit.message, 'Build Windows launcher EXE') }}
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -21,18 +24,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install dependencies
         run: npm install --no-package-lock
 
-      - name: Build Windows installer
-        run: npm run dist
-
-      - name: Copy installer into launcher folder
+      - name: Validate JavaScript
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path launcher | Out-Null
-          Copy-Item "release\\Extra-Games-Launcher-Setup-*.exe" "launcher\\Extra-Games-Launcher-Setup.exe" -Force
+          node --check server.js
+          node --check electron/main.js
+          node --check electron/preload.js
+          node --check electron/updater.js
+          node --check scripts/smoke-test.js
+
+      - name: Run server smoke test
+        run: npm test
+
+      - name: Build Windows installer
+        run: npm run dist
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
@@ -42,23 +52,28 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Commit current installer into launcher folder
+      - name: Publish rolling latest launcher release
         if: github.ref == 'refs/heads/main'
-        shell: pwsh
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add launcher/Extra-Games-Launcher-Setup.exe
-          if (-not (git diff --cached --quiet)) {
-            git commit -m "Build Windows launcher EXE"
-            git push
-          }
-
-      - name: Publish tagged release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
+          tag_name: launcher-latest
+          target_commitish: \${{ github.sha }}
+          name: Extra Games Launcher (Latest)
+          prerelease: false
+          make_latest: true
+          generate_release_notes: false
+          body: "Rolling Windows launcher build from main."
           files: release/*.exe
-          generate_release_notes: true
+          overwrite_files: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish versioned release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          files: release/*.exe
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
