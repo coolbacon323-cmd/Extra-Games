@@ -70,9 +70,10 @@ async function api(path,options={}){
   try{
     const r=await fetch(path,options);
     let d={};try{d=await r.json()}catch{}
-    if(!r.ok)throw new Error(d.error||"Request failed.");
+    if(!r.ok){const httpError=new Error(d.error||"Request failed.");httpError.isHttp=true;throw httpError;}
     return d;
   }catch(error){
+    if(error?.isHttp)throw error;
     const method=String(options.method||"GET").toUpperCase();
     if(path==="/api/auth/me"&&method==="GET"){
       const user=readLocalSession();
