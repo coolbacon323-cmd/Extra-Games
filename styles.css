@@ -62,3 +62,8 @@ main>header{animation:egFadeUp .45s var(--ease-out) both}
 .person-card:hover .person-avatar,.community-result:hover .community-mark,.download-card:hover .download-icon{transform:scale(1.035);border-color:#6a5420;box-shadow:0 8px 22px rgba(0,0,0,.2)}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 @media(max-width:800px){.nav:hover{transform:none}.game-card:hover,.feature-card:hover,.news-card:hover,.community-card:hover,.community-result:hover,.person-card:hover,.rules-card:hover,.admin-user-card:hover,.admin-report-card:hover,.notification-card:hover,.store-tile:hover,.admin-stat:hover{transform:none}}
+
+.offline-note{display:flex;align-items:center;gap:14px;margin:0 0 14px;padding:12px 15px;border:1px solid #4b3b1b;background:#11100c;color:#b9b1a0;border-radius:7px;animation:egFadeUp .35s var(--ease-out) both}
+.offline-note strong{color:var(--gold2);font-size:12px;letter-spacing:.3px}
+.offline-note span{font-size:11px;line-height:1.5;color:var(--muted)}
+@media(max-width:650px){.offline-note{align-items:flex-start;flex-direction:column;gap:5px}}
