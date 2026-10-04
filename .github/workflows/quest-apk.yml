@@ -58,11 +58,18 @@ jobs:
         working-directory: quest-app
         run: gradle --no-daemon assembleRelease
 
+      - name: Verify APK signature
+        shell: bash
+        run: |
+          APK="$(find quest-app/app/build/outputs -type f -name "*.apk" | head -n 1)"
+          test -n "$APK"
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+
       - name: Copy APK
         shell: bash
         run: |
           mkdir -p quest
-          echo "Built APK files:"
+          echo "Built and signed APK files:"
           find quest-app/app/build/outputs -type f -name "*.apk" -print
           APK="$(find quest-app/app/build/outputs -type f -name "*.apk" | head -n 1)"
           test -n "$APK"
