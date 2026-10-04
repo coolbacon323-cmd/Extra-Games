@@ -174,14 +174,7 @@ async function loadConversations(){
     box.querySelectorAll(".conversation-item").forEach(b=>b.onclick=()=>openMessageUser(b.dataset.id));
   }catch(e){box.innerHTML="<div class='empty compact'><strong>Messages unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
 }
-async function openMessageUser(id){
-  try{
-    const s=await api("/api/users/search?q="+encodeURIComponent(id));
-    let user=s.users?.find(u=>u.id===id);
-    if(!user){const d=await api("/api/messages?userId="+encodeURIComponent(id));user={id,name:"Player"};selectedMessageUser=id;show("messages");renderMessageHistory(d.messages||[],user);return}
-    selectedMessageUser=user.id;byId("message-to-user").value=user.id;byId("message-title").textContent="Message "+user.name;show("messages");await loadMessageHistory(user.id,user);
-  }catch(e){alert(e.message)}
-}
+async function openMessageUser(id){try{const d=await api("/api/users/"+encodeURIComponent(id));const user=d.user;selectedMessageUser=user.id;byId("message-to-user").value=user.id;byId("message-title").textContent="Message "+user.name;show("messages");await loadMessageHistory(user.id,user)}catch(e){alert(e.message)}}
 async function loadMessageHistory(id,user){
   try{const d=await api("/api/messages?userId="+encodeURIComponent(id));renderMessageHistory(d.messages||[],user)}catch(e){byId("message-history").innerHTML="<div class='empty compact'><strong>Conversation unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>"}
 }
