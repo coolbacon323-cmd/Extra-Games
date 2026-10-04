@@ -1,6 +1,6 @@
 {
   "name": "extra-games-launcher",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Extra Games desktop game store and launcher",
   "main": "electron/main.js",
   "author": "Extra Games",
@@ -23,7 +23,7 @@
   },
   "build": {
     "appId": "com.extragames.launcher",
-    "productName": "Extra Games Launcher",
+    "productName": "Extra Games",
     "executableName": "ExtraGamesLauncher",
     "directories": {
       "output": "release",
@@ -46,7 +46,8 @@
           ]
         }
       ],
-      "artifactName": "Extra-Games-Launcher-Setup-${version}.${ext}"
+      "artifactName": "Extra-Games-Launcher-Setup-${version}.${ext}",
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
