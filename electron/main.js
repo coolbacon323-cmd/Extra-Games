@@ -17,8 +17,17 @@ async function startLocalServer(){
   process.env.PORT=String(LOCAL_PORT);
   process.env.EXTRA_GAMES_VERSION=app.getVersion();
   process.env.EXTRA_GAMES_DATA_DIR=app.getPath("userData");
-  localServer=require("../server.js");
-  await localServer.ready;
+  try {
+    localServer=require("../server.js");
+    await localServer.ready;
+  } catch (error) {
+    if (error?.code!=="EADDRINUSE") throw error;
+    log("Default launcher port is busy; retrying on a private ephemeral port.");
+    process.env.PORT="0";
+    delete require.cache[require.resolve("../server.js")];
+    localServer=require("../server.js");
+    await localServer.ready;
+  }
   localPort=localServer.server.address()?.port;
   if(!localPort)throw new Error("Extra Games local server did not start.");
   log("Local server ready on stable port "+localPort);
