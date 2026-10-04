@@ -121,22 +121,16 @@ function renderGames(){
 async function loadStore(){
   const box=byId("dynamic-games");if(!box)return;
   box.innerHTML="<div class='empty compact'><strong>Loading games…</strong></div>";
-  let serverGames=[];
-  try{const d=await api("/api/games");serverGames=d.games||[]}catch{}
   try{
-    const local=await localGamesAll();
-    const session=readLocalSession();
-    const serverIds=new Set(serverGames.map(g=>g.id));
-    const localPublic=local.filter(g=>!!session&&g.creatorId===session.id&&!serverIds.has(g.id)).map(localGamePublic);
-    currentGames=[...serverGames,...localPublic];
+    const d=await api("/api/games");
+    currentGames=d.games||[];
     renderGames();
-    if(!serverGames.length&&localPublic.length){
-      box.insertAdjacentHTML("afterbegin","<div class='offline-note'><strong>Local web mode</strong><span>These games are stored securely in this browser. Connect a real website backend to publish them to other users.</span></div>");
-    }else if(!serverGames.length&&!localPublic.length){
-      box.innerHTML="<div class='empty compact'><strong>No games found</strong><p>Upload a game or connect the website backend to load the public store.</p></div>";
+    if(!currentGames.length){
+      box.innerHTML="<div class='empty compact'><strong>No games found</strong><p>There are no published games yet.</p></div>";
     }
   }catch(e){
-    box.innerHTML="<div class='empty compact'><strong>Store unavailable</strong><p>"+escapeHtml(e.message)+"</p></div>";
+    currentGames=[];
+    box.innerHTML="<div class='empty compact'><strong>Store unavailable</strong><p>"+escapeHtml(e.message)+"</p><p>Games are published through the real Extra Games website backend. Nothing is loaded from local browser storage.</p></div>";
   }
 }
 function toggleWishlist(id){const list=readWishlist(),next=list.includes(id)?list.filter(x=>x!==id):[...list,id];saveWishlist(next);renderGames();if(document.querySelector("#wishlist.active"))loadWishlist()}
