@@ -1,6 +1,6 @@
 {
   "name": "extra-games-launcher",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Extra Games desktop game store and launcher",
   "main": "electron/main.js",
   "author": "Extra Games",
