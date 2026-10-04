@@ -1,6 +1,6 @@
 {
   "name": "extra-games-launcher",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Extra Games desktop game store and launcher",
   "main": "electron/main.js",
   "author": "Extra Games",
@@ -9,7 +9,8 @@
     "start": "electron .",
     "server": "node server.js",
     "dist": "electron-builder --win --publish never",
-    "dist:dir": "electron-builder --win --dir"
+    "dist:dir": "electron-builder --win --dir",
+    "test": "node scripts/smoke-test.js"
   },
   "dependencies": {
     "electron-updater": "^6.6.2",
