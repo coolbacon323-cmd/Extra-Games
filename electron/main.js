@@ -7,19 +7,21 @@ const {configureAutoUpdates}=require("./updater");
 let mainWindow;
 let updater;
 let localServer;
-let localPort;
+// Keep the local web origin stable so Electron localStorage/cookies survive restarts and launcher updates.
+const LOCAL_PORT=48752;
+let localPort=LOCAL_PORT;
 function log(message,error){try{const dir=app.getPath("userData");fs.mkdirSync(dir,{recursive:true});fs.appendFileSync(path.join(dir,"launcher.log"),"["+new Date().toISOString()+"] "+message+(error?": "+(error.stack||error.message||String(error)):"")+"\\n","utf8")}catch{}}
 
 async function startLocalServer(){
   log("Starting launcher");
-  process.env.PORT="0";
+  process.env.PORT=String(LOCAL_PORT);
   process.env.EXTRA_GAMES_VERSION=app.getVersion();
   process.env.EXTRA_GAMES_DATA_DIR=app.getPath("userData");
   localServer=require("../server.js");
   await localServer.ready;
   localPort=localServer.server.address()?.port;
   if(!localPort)throw new Error("Extra Games local server did not start.");
-  log("Local server ready on port "+localPort);
+  log("Local server ready on stable port "+localPort);
 }
 function waitForServer(port,attempts=30){
   return new Promise((resolve,reject)=>{
