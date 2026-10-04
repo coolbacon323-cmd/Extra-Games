@@ -1,1 +1,42 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment complete — Extra Games</title><link rel="stylesheet" href="./styles.css"></head><body><main class="page-banner" style="margin:10vh auto;max-width:760px"><span class="eyebrow">PAYMENT</span><h2>Payment completed</h2><p>Your Stripe Checkout payment was submitted successfully. Game access should be unlocked only after your server confirms the payment.</p><button class="gold" onclick="location.href='index.html#store'">Back to Store</button></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payment — Extra Games</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<main class="page-banner" style="margin:10vh auto;max-width:760px">
+  <span class="eyebrow">PAYMENT</span>
+  <h2 id="payment-title">Confirming payment…</h2>
+  <p id="payment-message">Extra Games is verifying the Stripe Checkout session before granting game access.</p>
+  <button class="gold" id="back-store" hidden>Back to Store</button>
+</main>
+<script>
+(async function(){
+  const title=document.getElementById("payment-title");
+  const message=document.getElementById("payment-message");
+  const back=document.getElementById("back-store");
+  back.hidden=false;
+  back.onclick=()=>location.href="index.html#store";
+  const sessionId=new URLSearchParams(location.search).get("session_id");
+  if(!sessionId){
+    title.textContent="Payment could not be verified";
+    message.textContent="The Stripe session ID is missing. No game access was granted.";
+    return;
+  }
+  try{
+    const response=await fetch("/api/purchases/confirm?session_id="+encodeURIComponent(sessionId),{credentials:"same-origin"});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(data.error||"The payment could not be confirmed.");
+    title.textContent="Payment confirmed";
+    message.textContent="Your game is now in your Extra Games Library.";
+  }catch(error){
+    title.textContent="Payment needs verification";
+    message.textContent=error.message||"The payment could not be confirmed. No game access was granted.";
+  }
+})();
+</script>
+</body>
+</html>
