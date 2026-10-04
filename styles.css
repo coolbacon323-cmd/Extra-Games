@@ -67,3 +67,18 @@ main>header{animation:egFadeUp .45s var(--ease-out) both}
 .offline-note strong{color:var(--gold2);font-size:12px;letter-spacing:.3px}
 .offline-note span{font-size:11px;line-height:1.5;color:var(--muted)}
 @media(max-width:650px){.offline-note{align-items:flex-start;flex-direction:column;gap:5px}}
+
+.store-filters{display:flex;align-items:center;gap:8px}
+.store-filter{appearance:none;background:#0b0b0b;border:1px solid #38342b;color:#cfc8b8;border-radius:6px;padding:10px 34px 10px 12px;font:inherit;cursor:pointer}
+.store-filter:focus{outline:none;border-color:#725b27;box-shadow:0 0 0 3px rgba(215,170,56,.07)}
+.game-card-badges{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.vr-game-card{border-color:#3f3b22}
+.vr-game-card:hover{border-color:#6a5624}
+.vr-game-card .game-art{background:linear-gradient(145deg,#1e210f,#0a0a0a)}
+.vr-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:-2px 0 14px}
+.vr-meta span{font-size:9px;letter-spacing:1.2px;font-weight:850;color:#d7aa38;border:1px solid #51431f;padding:5px 7px;border-radius:999px;background:#11100b}
+.vr-meta span+span{color:#b8b09c;border-color:#39352b;background:#0d0d0d}
+.vr-meta small{color:#817b6f;line-height:1.4}
+.vr-upload-fields{display:grid;gap:15px;padding:14px;border:1px solid #40361d;background:#0d0d0b;border-radius:6px;animation:egFadeUp .22s var(--ease-out) both}
+.local-badge{color:#8f8a7e!important;border-color:#35312a!important;background:#0c0c0c!important}
+@media(max-width:650px){.store-filters{width:100%;flex-direction:column;align-items:stretch}.store-filter{width:100%}}
