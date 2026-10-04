@@ -10,6 +10,7 @@ let localPort;
 function startLocalServer(){
   process.env.PORT="0";
   process.env.EXTRA_GAMES_VERSION=app.getVersion();
+  process.env.EXTRA_GAMES_DATA_DIR=app.getPath("userData");
   localServer=require("../server.js");
   localPort=localServer?.server?.address()?.port;
   if(!localPort)throw new Error("Extra Games local server did not start.");
