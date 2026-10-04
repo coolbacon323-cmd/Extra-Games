@@ -10,7 +10,8 @@
     "server": "node server.js",
     "dist": "electron-builder --win --publish never",
     "dist:dir": "electron-builder --win --dir",
-    "test": "node scripts/smoke-test.js"
+    "test": "node scripts/smoke-test.js",
+    "dist:publish": "electron-builder --win --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.6.2",
