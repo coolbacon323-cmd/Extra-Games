@@ -5,7 +5,7 @@ const crypto=require("node:crypto");
 const multer=require("multer");
 const Stripe=require("stripe");
 const app=express();
-const port=Number(process.env.PORT)||3000;
+const port=process.env.PORT===undefined?3000:Number(process.env.PORT);
 const ADMIN_EMAIL=String(process.env.ADMIN_EMAIL||"cool.bacon323@gmail.com").trim().toLowerCase();
 const VERSION="0.5.0";
 app.disable("x-powered-by");
