@@ -1,6 +1,7 @@
 const views=[...document.querySelectorAll(".view")],byId=id=>document.getElementById(id),nav=[...document.querySelectorAll(".nav")],title=document.querySelector("#title");
 const names={home:"Discover something new",store:"Store",library:"Your Library",wishlist:"Wishlist",community:"Community",messages:"Messages",rules:"Rules",admin:"Admin",news:"News",upload:"Upload Game",account:"Account",settings:"Settings"};
 let currentGames=[];
+let currentStaffRole="user";
 let searchText="";
 const WISHLIST_KEY="extra_games_wishlist_v1";
 const LOCAL_USERS_KEY="extra_games_local_users_v1";
@@ -96,6 +97,7 @@ async function loadAdmin(){
   const me=await api("/api/auth/me");
   if(!me.user||!me.user.isAdmin){alert("Staff access required.");show("account");return}
   const role=me.user.role||"user";
+  currentStaffRole=role;
   byId("admin-current-role").textContent=role;
   byId("admin-role-line").textContent="Signed in as "+me.user.name+" • "+role;
   loadAdminUsers("");
@@ -121,7 +123,12 @@ async function loadAdminUsers(q){
     if(!d.users?.length){box.innerHTML="<div class='empty compact'><strong>No users found</strong></div>";return}
     box.innerHTML=d.users.map(u=>{
       const owner=u.role==="owner";
-      return "<article class='admin-user-card'><div class='person-avatar'>"+escapeHtml(u.name.slice(0,2).toUpperCase())+"</div><div class='admin-user-main'><div class='admin-user-head'><div><span class='badge'>"+escapeHtml(u.role.toUpperCase())+"</span><h3>"+escapeHtml(u.name)+"</h3><small>"+escapeHtml(u.email)+"</small></div><span class='ban-state "+(u.banned?"banned":"ok")+"'>"+(u.banned?"BANNED":"ACTIVE")+"</span></div><div class='admin-user-actions'>"+(owner?"<span class='owner-lock'>OWNER ACCOUNT — PROTECTED</span>":"<><label>Role<select class='admin-role-select' data-id='"+u.id+"'>"+roleOptions(u.role)+"</select></label><button class='gold save-role' data-id='"+u.id+"'>Save Role</button>"+(u.banned?"<button class='outline unban-user' data-id='"+u.id+"'>Unban</button>":"<button class='danger-button ban-user' data-id='"+u.id+"'>Ban</button>")+"</>")+"</div>"+(u.banned&&u.bannedReason?"<p class='ban-reason'>Reason: "+escapeHtml(u.bannedReason)+"</p>":"")+"</div></article>"
+      const staffLevels={user:0,moderator:1,manager:2,admin:3,"co-owner":4,owner:5};
+      const canAssign=currentStaffRole==="owner";
+      const canAct=!owner&&(staffLevels[currentStaffRole]||0)>(staffLevels[u.role]||0);
+      const roleControls=canAssign?"<label>Role<select class='admin-role-select' data-id='"+u.id+"'>"+roleOptions(u.role)+"</select></label><button class='gold save-role' data-id='"+u.id+"'>Save Role</button>":"";
+      const banControls=canAct?(u.banned?"<button class='outline unban-user' data-id='"+u.id+"'>Unban</button>":"<button class='danger-button ban-user' data-id='"+u.id+"'>Ban</button>"):"";
+      return "<article class='admin-user-card'><div class='person-avatar'>"+escapeHtml(u.name.slice(0,2).toUpperCase())+"</div><div class='admin-user-main'><div class='admin-user-head'><div><span class='badge'>"+escapeHtml(u.role.toUpperCase())+"</span><h3>"+escapeHtml(u.name)+"</h3><small>"+escapeHtml(u.email)+"</small></div><span class='ban-state "+(u.banned?"banned":"ok")+"'>"+(u.banned?"BANNED":"ACTIVE")+"</span></div><div class='admin-user-actions'>"+(owner?"<span class='owner-lock'>OWNER ACCOUNT — PROTECTED</span>":roleControls+banControls)+"</div>"+(u.banned&&u.bannedReason?"<p class='ban-reason'>Reason: "+escapeHtml(u.bannedReason)+"</p>":"")+"</div></article>"
     }).join("");
     box.querySelectorAll(".save-role").forEach(b=>b.onclick=async()=>{const select=box.querySelector(".admin-role-select[data-id='"+b.dataset.id+"']");try{await api("/api/admin/users/"+b.dataset.id+"/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:select.value})});loadAdminUsers(q)}catch(e){alert(e.message)}});
     box.querySelectorAll(".ban-user").forEach(b=>b.onclick=async()=>{const reason=prompt("Ban reason:","Rule violation");if(reason===null)return;try{await api("/api/admin/users/"+b.dataset.id+"/ban",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason})});loadAdminUsers(q)}catch(e){alert(e.message)}});
