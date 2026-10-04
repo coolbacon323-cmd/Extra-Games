@@ -99,7 +99,7 @@ async function api(path,options={}){
 function formData(form){return Object.fromEntries(new FormData(form).entries())}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
 function launcherAvailable(){return !!window.launcher}
-function launcherVersion(){try{return window.launcher.version()}catch{return"0.5.4"}}
+function launcherVersion(){try{return window.launcher.version()}catch{return"0.6.1"}}
 function updateLauncherUI(){const mode=byId("launcher-mode"),desc=byId("launcher-description");if(mode){mode.textContent=launcherAvailable()?"WINDOWS LAUNCHER":"WEB APP";mode.classList.toggle("desktop",launcherAvailable())}if(desc&&launcherAvailable())desc.textContent="Running inside Extra Games Launcher "+launcherVersion()+". This desktop app uses the same Extra Games interface."}
 function renderGames(){
   const box=byId("dynamic-games");if(!box)return;
@@ -237,7 +237,6 @@ byId("upload-form")?.addEventListener("submit",async e=>{
       :"Upload failed: "+message;
   }
 });
-async function loadAdmin(){show("account");const panel=byId("account-panel");try{const d=await api("/api/admin/games");panel.innerHTML="<h3>Admin review</h3>"+d.games.map(g=>"<div class='admin-row'><strong>"+escapeHtml(g.title)+"</strong> <span>"+escapeHtml(g.status)+"</span><button class='gold' data-a='approve' data-id='"+g.id+"'>Approve</button><button class='outline' data-a='reject' data-id='"+g.id+"'>Reject</button></div>").join("");panel.hidden=false;panel.querySelectorAll("[data-a]").forEach(b=>b.onclick=async()=>{await api("/api/admin/games/"+b.dataset.id+"/"+b.dataset.a,{method:"POST"});loadAdmin()})}catch(e){panel.innerHTML="<p>"+escapeHtml(e.message)+"</p>"}}
 async function startCheckout(gameId){
   try{
     const game=currentGames.find(g=>g.id===gameId);
