@@ -66,42 +66,55 @@ app.get("/api/users/:id",auth,(req,res)=>{const u=getUserById(req.params.id);if(
 app.get("/api/users/search",auth,(req,res)=>{
   const q=String(req.query.q||"").trim().toLowerCase();
   if(q.length<2)return res.json({users:[]});
-  const users=readJson(files.users,[]).filter(u=>u.id!==req.user.id&&!blockedPair(req.user.id,u.id)&&u.name.toLowerCase().includes(q)).slice(0,25);
+  const users=readJson(files.users,[]).filter(u=>u.id!==req.user.id&&!u.banned&&!blockedPair(req.user.id,u.id)&&u.name.toLowerCase().includes(q)).slice(0,25);
   res.json({users:users.map(u=>{
     const f=friendship(req.user.id,u.id);
-    return publicProfile(u,{friendStatus:f?.status||null,friendRequestId:f?.id||null});
+    return publicProfile(u,{friendStatus:f?.status||null,friendRequestId:f?.id||null,friendDirection:f?(f.requesterId===req.user.id?"outgoing":"incoming"):null});
   })});
 });
 app.get("/api/friends",auth,(req,res)=>{
   const rows=readJson(files.friends,[]).filter(x=>x.requesterId===req.user.id||x.recipientId===req.user.id);
-  const friends=rows.filter(x=>x.status==="accepted").map(x=>getUserById(x.requesterId===req.user.id?x.recipientId:x.requesterId)).filter(Boolean).map(u=>publicProfile(u));
-  const incoming=rows.filter(x=>x.status==="pending"&&x.recipientId===req.user.id).map(x=>({id:x.id,user:publicProfile(getUserById(x.requesterId))}));
-  const outgoing=rows.filter(x=>x.status==="pending"&&x.requesterId===req.user.id).map(x=>({id:x.id,user:publicProfile(getUserById(x.recipientId))}));
+  const friends=rows.filter(x=>x.status==="accepted").map(x=>({row:x,user:getUserById(x.requesterId===req.user.id?x.recipientId:x.requesterId)})).filter(x=>x.user).map(x=>publicProfile(x.user,{friendshipId:x.row.id}));
+  const incoming=rows.filter(x=>x.status==="pending"&&x.recipientId===req.user.id).map(x=>({id:x.id,user:getUserById(x.requesterId)})).filter(x=>x.user).map(x=>({id:x.id,user:publicProfile(x.user)}));
+  const outgoing=rows.filter(x=>x.status==="pending"&&x.requesterId===req.user.id).map(x=>({id:x.id,user:getUserById(x.recipientId)})).filter(x=>x.user).map(x=>({id:x.id,user:publicProfile(x.user)}));
   res.json({friends,incoming,outgoing});
 });
 app.post("/api/friends/request",auth,(req,res)=>{
   const targetId=String(req.body?.userId||"");
   const target=getUserById(targetId);
-  if(!target||target.id===req.user.id)return res.status(404).json({error:"Player not found."});
+  if(!target||target.id===req.user.id||target.banned)return res.status(404).json({error:"Player not found."});
   if(blockedPair(req.user.id,target.id))return res.status(403).json({error:"You cannot add this player."});
   const existing=friendship(req.user.id,target.id);
   if(existing){
     if(existing.status==="accepted")return res.status(409).json({error:"You are already friends."});
-    if(existing.status==="pending")return res.status(409).json({error:"A friend request already exists."});
+    if(existing.status==="pending"){
+      if(existing.recipientId===req.user.id)return res.status(409).json({error:"This player already sent you a request. Accept it from Friends."});
+      return res.status(409).json({error:"A friend request already exists."});
+    }
   }
   const friends=readJson(files.friends,[]);
   const row={id:crypto.randomUUID(),requesterId:req.user.id,recipientId:target.id,status:"pending",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-  friends.push(row);writeJson(files.friends,friends);res.json({requestId:row.id});
+  friends.push(row);writeJson(files.friends,friends);
+  makeNotification(target.id,"friend","New friend request",req.user.name+" sent you a friend request.",{requestId:row.id,userId:req.user.id});
+  res.json({requestId:row.id});
 });
 app.post("/api/friends/:id/accept",auth,(req,res)=>{
   const friends=readJson(files.friends,[]),row=friends.find(x=>x.id===req.params.id&&x.recipientId===req.user.id&&x.status==="pending");
   if(!row)return res.status(404).json({error:"Friend request not found."});
-  row.status="accepted";row.updatedAt=new Date().toISOString();writeJson(files.friends,friends);res.json({ok:true});
+  row.status="accepted";row.updatedAt=new Date().toISOString();writeJson(files.friends,friends);
+  makeNotification(row.requesterId,"friend","Friend request accepted",req.user.name+" accepted your friend request.",{friendshipId:row.id,userId:req.user.id});
+  res.json({ok:true});
 });
 app.post("/api/friends/:id/decline",auth,(req,res)=>{
   const friends=readJson(files.friends,[]),row=friends.find(x=>x.id===req.params.id&&x.recipientId===req.user.id&&x.status==="pending");
   if(!row)return res.status(404).json({error:"Friend request not found."});
   row.status="rejected";row.updatedAt=new Date().toISOString();writeJson(files.friends,friends);res.json({ok:true});
+});
+app.delete("/api/friends/:id",auth,(req,res)=>{
+  const friends=readJson(files.friends,[]),before=friends.length;
+  const next=friends.filter(x=>!(x.id===req.params.id&&(x.requesterId===req.user.id||x.recipientId===req.user.id)));
+  if(next.length===before)return res.status(404).json({error:"Friendship not found."});
+  writeJson(files.friends,next);res.json({ok:true});
 });
 app.get("/api/blocks",auth,(req,res)=>{
   const ids=readJson(files.blocks,[]).filter(x=>x.blockerId===req.user.id).map(x=>x.blockedId);
@@ -113,9 +126,9 @@ app.post("/api/blocks/:userId",auth,(req,res)=>{
   const blocks=readJson(files.blocks,[]);
   if(!blocks.some(x=>x.blockerId===req.user.id&&x.blockedId===target.id)){
     blocks.push({id:crypto.randomUUID(),blockerId:req.user.id,blockedId:target.id,createdAt:new Date().toISOString()});
-    writeJson(files.blocks,blocks);
   }
-  res.json({ok:true});
+  const friends=readJson(files.friends,[]).filter(x=>!((x.requesterId===req.user.id&&x.recipientId===target.id)||(x.requesterId===target.id&&x.recipientId===req.user.id)));
+  writeJson(files.blocks,blocks);writeJson(files.friends,friends);res.json({ok:true});
 });
 app.delete("/api/blocks/:userId",auth,(req,res)=>{
   const blocks=readJson(files.blocks,[]).filter(x=>!(x.blockerId===req.user.id&&x.blockedId===req.params.userId));
@@ -168,7 +181,7 @@ app.get("/api/communities",auth,(req,res)=>{
     const invited=invites.some(i=>i.communityId===c.id&&i.userId===req.user.id&&i.status==="pending");
     const visible=c.visibility==="public"||c.visibility==="invite"||member||invited||c.ownerId===req.user.id;
     return visible&&(!q||c.name.toLowerCase().includes(q));
-  }).slice(0,50).map(c=>({...c,members:undefined,memberCount:c.members.length,isMember:c.members.some(m=>m.userId===req.user.id),canInvite:c.ownerId===req.user.id,isInvited:invites.some(i=>i.communityId===c.id&&i.userId===req.user.id&&i.status==="pending")}));
+  }).slice(0,50).map(c=>({...c,members:undefined,memberCount:c.members.length,isMember:c.members.some(m=>m.userId===req.user.id),isOwner:c.ownerId===req.user.id,canInvite:c.members.some(m=>m.userId===req.user.id&&["owner","moderator"].includes(m.role)),canManage:c.ownerId===req.user.id,isInvited:invites.some(i=>i.communityId===c.id&&i.userId===req.user.id&&i.status==="pending")}));
   res.json({communities:results});
 });
 app.post("/api/communities",auth,(req,res)=>{
@@ -177,7 +190,7 @@ app.post("/api/communities",auth,(req,res)=>{
   const communities=readJson(files.communities,[]);
   if(communities.some(c=>c.name.toLowerCase()===name.toLowerCase()))return res.status(409).json({error:"A community with that name already exists."});
   const c={id:crypto.randomUUID(),name,description,visibility,ownerId:req.user.id,ownerName:req.user.name,members:[{userId:req.user.id,role:"owner",joinedAt:new Date().toISOString()}],createdAt:new Date().toISOString()};
-  communities.push(c);writeJson(files.communities,communities);res.json({community:{...c,members:undefined,memberCount:1,isMember:true}});
+  communities.push(c);writeJson(files.communities,communities);res.json({community:{...c,members:undefined,memberCount:1,isMember:true,isOwner:true,canInvite:true,canManage:true}});
 });
 app.post("/api/communities/:id/join",auth,(req,res)=>{
   const communities=readJson(files.communities,[]),c=communities.find(x=>x.id===req.params.id);
@@ -187,21 +200,57 @@ app.post("/api/communities/:id/join",auth,(req,res)=>{
   if(c.visibility!=="public"&&!invite)return res.status(403).json({error:c.visibility==="private"?"This private community is invite-only.":"This community requires an invite."});
   c.members.push({userId:req.user.id,role:"member",joinedAt:new Date().toISOString()});
   if(invite){invite.status="accepted";invite.updatedAt=new Date().toISOString();writeJson(files.communityInvites,invites)}
-  writeJson(files.communities,communities);res.json({ok:true});
+  writeJson(files.communities,communities);
+  makeNotification(c.ownerId,"community","New community member",req.user.name+" joined "+c.name+".",{communityId:c.id,userId:req.user.id});
+  res.json({ok:true});
 });
 app.post("/api/communities/:id/invite",auth,(req,res)=>{
-  const communities=readJson(files.communities,[]),c=communities.find(x=>x.id===req.params.id);
-  const target=getUserById(String(req.body?.userId||""));
-  if(!c||!target)return res.status(404).json({error:"Community or player not found."});
-  const owner=c.members.find(m=>m.userId===req.user.id&&["owner","moderator"].includes(m.role));
-  if(!owner)return res.status(403).json({error:"Only the community owner or moderators can invite players."});
+  const communities=readJson(files.communities,[]),c=communities.find(x=>x.id===req.params.id),target=getUserById(String(req.body?.userId||""));
+  if(!c||!target||target.banned)return res.status(404).json({error:"Community or player not found."});
+  const member=c.members.find(m=>m.userId===req.user.id&&["owner","moderator"].includes(m.role));
+  if(!member)return res.status(403).json({error:"Only the community owner or moderators can invite players."});
   if(c.members.some(m=>m.userId===target.id))return res.status(409).json({error:"That player is already a member."});
+  if(blockedPair(req.user.id,target.id))return res.status(403).json({error:"You cannot invite a blocked player."});
   const invites=readJson(files.communityInvites,[]);
   if(!invites.some(i=>i.communityId===c.id&&i.userId===target.id&&i.status==="pending")){
     invites.push({id:crypto.randomUUID(),communityId:c.id,userId:target.id,invitedBy:req.user.id,status:"pending",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
     writeJson(files.communityInvites,invites);
+    makeNotification(target.id,"community","Community invitation",req.user.name+" invited you to join "+c.name+".",{communityId:c.id,inviteId:invites[invites.length-1].id});
   }
   res.json({ok:true});
+});
+app.post("/api/communities/:id/leave",auth,(req,res)=>{
+  const communities=readJson(files.communities,[]),c=communities.find(x=>x.id===req.params.id);
+  if(!c)return res.status(404).json({error:"Community not found."});
+  if(c.ownerId===req.user.id)return res.status(403).json({error:"The owner cannot leave. Transfer ownership or delete the community instead."});
+  const before=c.members.length;c.members=c.members.filter(m=>m.userId!==req.user.id);
+  if(c.members.length===before)return res.status(404).json({error:"You are not a member of this community."});
+  writeJson(files.communities,communities);res.json({ok:true});
+});
+app.delete("/api/communities/:id",auth,(req,res)=>{
+  const communities=readJson(files.communities,[]),c=communities.find(x=>x.id===req.params.id);
+  if(!c)return res.status(404).json({error:"Community not found."});
+  if(c.ownerId!==req.user.id)return res.status(403).json({error:"Only the owner can delete this community."});
+  writeJson(files.communities,communities.filter(x=>x.id!==c.id));
+  writeJson(files.communityInvites,readJson(files.communityInvites,[]).filter(x=>x.communityId!==c.id));
+  res.json({ok:true});
+});
+app.post("/api/communities/:id/members/:userId/role",auth,(req,res)=>{
+  const communities=readJson(files.communities,[]),c=communities.find(x=>x.id===req.params.id),target=c?.members.find(m=>m.userId===req.params.userId);
+  if(!c||!target)return res.status(404).json({error:"Community or member not found."});
+  if(c.ownerId!==req.user.id)return res.status(403).json({error:"Only the community owner can manage moderators."});
+  if(target.userId===c.ownerId)return res.status(400).json({error:"The owner role cannot be changed."});
+  const role=String(req.body?.role||"member");if(!["member","moderator"].includes(role))return res.status(400).json({error:"Invalid community role."});
+  target.role=role;writeJson(files.communities,communities);res.json({ok:true,role});
+});
+app.delete("/api/communities/:id/members/:userId",auth,(req,res)=>{
+  const communities=readJson(files.communities,[]),c=communities.find(x=>x.id===req.params.id);
+  if(!c)return res.status(404).json({error:"Community not found."});
+  if(c.ownerId!==req.user.id&&!(c.members.find(m=>m.userId===req.user.id)?.role==="moderator"))return res.status(403).json({error:"Community moderation access required."});
+  if(req.params.userId===c.ownerId)return res.status(400).json({error:"The owner cannot be removed."});
+  const before=c.members.length;c.members=c.members.filter(m=>m.userId!==req.params.userId);
+  if(c.members.length===before)return res.status(404).json({error:"Member not found."});
+  writeJson(files.communities,communities);res.json({ok:true});
 });
 app.get("/api/communities/invites",auth,(req,res)=>{
   const invites=readJson(files.communityInvites,[]).filter(i=>i.userId===req.user.id&&i.status==="pending");
@@ -212,6 +261,7 @@ app.post("/api/communities/invites/:id/decline",auth,(req,res)=>{
   const invites=readJson(files.communityInvites,[]),i=invites.find(x=>x.id===req.params.id&&x.userId===req.user.id&&x.status==="pending");
   if(!i)return res.status(404).json({error:"Invite not found."});i.status="declined";i.updatedAt=new Date().toISOString();writeJson(files.communityInvites,invites);res.json({ok:true});
 });
+
 app.post("/api/games/upload",auth,upload.single("game"),(req,res)=>{if(!req.file)return res.status(400).json({error:"Choose a ZIP, EXE or APK game package."});const title=String(req.body?.title||"").trim(),description=String(req.body?.description||"").trim(),price=Number(req.body?.price),gameType=["desktop","vr","both"].includes(String(req.body?.gameType||"desktop"))?String(req.body.gameType):"desktop",vrRuntime=String(req.body?.vrRuntime||"").trim().slice(0,200),vrDevice=String(req.body?.vrDevice||"").trim().slice(0,100),headsetInput=Array.isArray(req.body?.vrHeadsets)?req.body.vrHeadsets:[req.body?.vrHeadsets],vrHeadsets=headsetInput.filter(Boolean).map(x=>String(x).trim()).filter(Boolean).join(", ").slice(0,400),ext=path.extname(req.file.originalname).toLowerCase(),packageType=ext.slice(1);if(!title||title.length>80||!description||description.length>2000||!Number.isFinite(price)||price<0||price>999.99){fs.rmSync(req.file.path,{force:true});return res.status(400).json({error:"Enter a valid title, description and price from €0 to €999.99."})}if((gameType==="vr"||gameType==="both")&&!vrRuntime){fs.rmSync(req.file.path,{force:true});return res.status(400).json({error:"Select the VR runtime/technology used by this game."})}if(ext===".apk"&&gameType==="desktop"){fs.rmSync(req.file.path,{force:true});return res.status(400).json({error:"APK packages must be marked as a VR game or Desktop + VR game."})}if(ext===".apk"&&!vrDevice){fs.rmSync(req.file.path,{force:true});return res.status(400).json({error:"Select the VR device target for this APK."})}const game={id:crypto.randomUUID(),title,description,price:Math.round(price*100)/100,filename:req.file.filename,originalFilename:req.file.originalname,creatorId:req.user.id,creatorName:req.user.name,status:"pending",gameType,vrRuntime,vrHeadsets,vrDevice,packageType,createdAt:new Date().toISOString()};const games=readJson(files.games,[]);games.push(game);writeJson(files.games,games);notifyStaff("game","New game awaiting review",req.user.name+" uploaded "+game.title+" for moderation.",{gameId:game.id,gameType:game.gameType,packageType:game.packageType,vrDevice:game.vrDevice});res.json({game:publicGame(game)})});
 app.get("/api/games",(req,res)=>{const user=getUser(req),owned=new Set(user?readJson(files.purchases,[]).filter(p=>p.userId===user.id&&p.status==="paid").map(p=>p.gameId):[]);res.json({games:readJson(files.games,[]).filter(g=>g.status==="approved").map(g=>publicGame(g,owned))})});
 app.get("/api/library",auth,(req,res)=>{const owned=new Set(readJson(files.purchases,[]).filter(p=>p.userId===req.user.id&&p.status==="paid").map(p=>p.gameId));res.json({games:readJson(files.games,[]).filter(g=>owned.has(g.id)).map(g=>publicGame(g,owned))})});
