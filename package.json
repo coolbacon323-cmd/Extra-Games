@@ -35,9 +35,11 @@
       "index.html",
       "styles.css",
       "app.js",
+      "core-ui.js",
       "server.js",
       "api/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "installer.nsh"
     ],
     "win": {
       "target": [
