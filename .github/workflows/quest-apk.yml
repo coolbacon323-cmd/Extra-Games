@@ -1,0 +1,80 @@
+name: Build Meta Quest APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "quest-app/**"
+      - "index.html"
+      - "styles.css"
+      - "app.js"
+      - ".github/workflows/quest-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-quest:
+    if: ${{ !contains(github.event.head_commit.message, 'Build Meta Quest APK') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Download Gradle
+        shell: bash
+        run: |
+          curl -L --fail --silent --show-error -o gradle.zip https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q gradle.zip
+          echo "$PWD/gradle-8.9/bin" >> "$GITHUB_PATH"
+
+      - name: Bundle current Extra Games UI
+        shell: bash
+        run: |
+          mkdir -p quest-app/app/src/main/assets
+          cp index.html quest-app/app/src/main/assets/index.html
+          cp styles.css quest-app/app/src/main/assets/styles.css
+          cp app.js quest-app/app/src/main/assets/app.js
+
+      - name: Build Quest APK
+        working-directory: quest-app
+        run: gradle --no-daemon assembleRelease
+
+      - name: Copy APK
+        shell: bash
+        run: |
+          mkdir -p quest
+          cp quest-app/app/build/outputs/apk/release/app-release.apk quest/Extra-Games-Quest.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Extra-Games-Quest-APK
+          path: quest/Extra-Games-Quest.apk
+          if-no-files-found: error
+
+      - name: Commit APK into repository
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add quest/Extra-Games-Quest.apk
+          git diff --cached --quiet && exit 0
+          git commit -m "Build Meta Quest APK"
+          git push
